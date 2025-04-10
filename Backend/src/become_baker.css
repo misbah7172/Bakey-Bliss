@@ -1,0 +1,77 @@
+/* Become a Baker Section */
+.become-a-baker {
+  padding: 50px 20px;
+  text-align: center;
+  background: #fff;
+  margin: 20px;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.become-a-baker h2 {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: #5a4a42;
+}
+
+.become-a-baker p {
+  font-size: 16px;
+  color: #5a4a42;
+  margin-bottom: 30px;
+}
+
+.become-a-baker form {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #5a4a42;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+.availability-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.availability-options label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #5a4a42;
+}
+
+.submit-button {
+  background: #ff6f61;
+  color: #fff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 30px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  margin-top: 20px;
+}
+
+.submit-button:hover {
+  background: #e65a50;
+}
