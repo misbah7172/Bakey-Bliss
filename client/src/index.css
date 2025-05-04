@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 36 30% 96%;
+  --foreground: 20 14.3% 4.1%;
+  --muted: 60 4.8% 95.9%;
+  --muted-foreground: 25 5.3% 44.7%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 20 14.3% 4.1%;
+  --card: 0 0% 100%;
+  --card-foreground: 20 14.3% 4.1%;
+  --border: 20 5.9% 90%;
+  --input: 20 5.9% 90%;
+  --primary: 26 67% 36%;
+  --primary-foreground: 60 9.1% 97.8%;
+  --secondary: 48 100% 96%;
+  --secondary-foreground: 24 9.8% 10%;
+  --accent: 24 83% 41%;
+  --accent-foreground: 60 9.1% 97.8%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 60 9.1% 97.8%;
+  --ring: 26 67% 36%;
+  --radius: 0.5rem;
+  
+  /* Additional BakeryBliss colors */
+  --primary-light: 26 35% 48%;
+  --primary-dark: 26 50% 28%;
+  --neutral-light: 33 41% 92%;
+  --neutral-dark: 27 42% 16%;
+  --success: 122 39% 34%;
+  --alert: 33 100% 50%;
+  
+  /* Chart colors */
+  --chart-1: 26 67% 36%;
+  --chart-2: 24 83% 41%;
+  --chart-3: 33 100% 50%;
+  --chart-4: 122 39% 34%;
+  --chart-5: 27 42% 16%;
+}
+
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --primary: 26 67% 36%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 24 83% 41%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 26 67% 36%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-neutral-light text-foreground;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+  
+  .font-accent {
+    font-family: 'Pacifico', cursive;
+  }
+  
+  .font-heading {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer components {
+  .hero-section {
+    background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1517433367423-c7e5b0f35086?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80');
+    background-size: cover;
+    background-position: center;
+  }
+  
+  .category-card:hover .category-overlay {
+    opacity: 0.9;
+  }
+  
+  .product-card {
+    @apply transition-all duration-300;
+  }
+  
+  .product-card:hover {
+    @apply transform -translate-y-1 shadow-lg;
+  }
+  
+  .btn-primary {
+    @apply transition-all duration-300;
+  }
+  
+  .btn-primary:hover {
+    @apply transform -translate-y-0.5 shadow-md;
+  }
+}
