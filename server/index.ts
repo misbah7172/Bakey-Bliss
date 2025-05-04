@@ -1,8 +1,9 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-// For local MySQL setup - commented out for now
-// import * as database from "./database.mjs";
+// Dynamically import MySQL database setup
+// This is used for local development with XAMPP
+import * as database from "./database.mjs";
 
 const app = express();
 app.use(express.json());
@@ -40,12 +41,12 @@ app.use((req, res, next) => {
 
 (async () => {
   // Setup database - this will create it if it doesn't exist (for local MySQL development)
-  // try {
-  //   await database.setupDatabase();
-  //   log("Database setup completed successfully");
-  // } catch (error: any) {
-  //   log(`Database setup failed: ${error.message}`);
-  // }
+  try {
+    await database.setupDatabase();
+    log("Database setup completed successfully");
+  } catch (error: any) {
+    log(`Database setup failed: ${error.message}`);
+  }
   
   const server = await registerRoutes(app);
 

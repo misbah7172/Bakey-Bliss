@@ -38,10 +38,10 @@ CREATE TABLE IF NOT EXISTS orders (
   junior_baker_id INT,
   status VARCHAR(20) NOT NULL DEFAULT 'pending',
   total_amount DECIMAL(10, 2) NOT NULL,
-  shipping_address TEXT,
-  billing_address TEXT,
-  payment_method VARCHAR(50),
+  payment_method VARCHAR(50) DEFAULT 'credit_card',
+  delivery_info JSON,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (main_baker_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (junior_baker_id) REFERENCES users(id) ON DELETE SET NULL
@@ -89,6 +89,35 @@ CREATE TABLE IF NOT EXISTS baker_applications (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Notifications table
+CREATE TABLE IF NOT EXISTS notifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  title VARCHAR(100) NOT NULL,
+  message TEXT NOT NULL,
+  type VARCHAR(50) NOT NULL,
+  order_id INT,
+  read BOOLEAN DEFAULT FALSE,
+  action_url VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Order reviews table
+CREATE TABLE IF NOT EXISTS order_reviews (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  customer_id INT NOT NULL,
+  junior_baker_id INT NOT NULL,
+  rating INT NOT NULL,
+  review_text TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (junior_baker_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- Check if categories table is empty before inserting
