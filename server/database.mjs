@@ -68,10 +68,17 @@ async function setupDatabase() {
     };
   } catch (error) {
     console.error('❌ Database setup failed:', error.message);
-    throw error;
+    // Don't throw error, just return null
+    // This allows the application to continue running without database
+    // when in environments without MySQL (e.g., Replit)
+    return null;
   } finally {
     if (connection) {
-      await connection.end();
+      try {
+        await connection.end();
+      } catch (err) {
+        // Ignore connection end errors
+      }
     }
   }
 }
@@ -79,6 +86,14 @@ async function setupDatabase() {
 // Get a database connection pool for the application
 async function getConnectionPool() {
   const config = await setupDatabase();
+  
+  // If config is null, database setup failed
+  // Return null instead of creating a pool
+  if (!config) {
+    console.log('⚠️ Running without MySQL database. Using in-memory storage instead.');
+    return null;
+  }
+  
   return mysql.createPool({
     ...config,
     waitForConnections: true,
