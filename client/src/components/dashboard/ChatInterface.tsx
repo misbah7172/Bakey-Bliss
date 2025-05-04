@@ -67,8 +67,27 @@ export default function ChatInterface() {
     setMessageText("");
   };
   
-  // Get filtered users (excluding current user)
-  const filteredUsers = users.filter(u => u.id !== user?.id);
+  // Get filtered users based on role restrictions
+  const filteredUsers = users.filter(u => {
+    // Don't show current user
+    if (u.id === user?.id) return false;
+    
+    // Role-based filtering
+    if (user?.role === "customer") {
+      // Customers can only chat with junior_baker, main_baker or admin
+      return ["junior_baker", "main_baker", "admin"].includes(u.role);
+    } else if (user?.role === "junior_baker") {
+      // Junior bakers can chat with customers, main_baker or admin
+      return ["customer", "main_baker", "admin"].includes(u.role);
+    } else if (user?.role === "main_baker") {
+      // Main bakers can chat with customers, junior_baker or admin
+      return ["customer", "junior_baker", "admin"].includes(u.role);
+    } else if (user?.role === "admin") {
+      // Admins can chat with anyone
+      return true;
+    }
+    return false;
+  });
   
   // Count unread messages per user
   const unreadByUser = filteredUsers.reduce((acc, user) => {
