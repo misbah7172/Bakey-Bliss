@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { insertOrderSchema, insertOrderItemSchema, insertChatMessageSchema, insertBakerApplicationSchema, customCakeSchema, customChocolateSchema } from "@shared/schema";
+import { insertOrderSchema, insertOrderItemSchema, insertChatMessageSchema, insertBakerApplicationSchema, customCakeSchema, customChocolateSchema, insertOrderReviewSchema, insertNotificationSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -37,8 +37,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sender_id: data.senderId,
             receiver_id: data.receiverId,
             order_id: data.orderId || null,
-            content: data.content,
-            read: false
+            content: data.content
           });
           
           // Send message to receiver if they are connected
@@ -380,12 +379,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sender_id: req.user.id
       });
       
+      // Get receiver info
+      const receiver = await storage.getUser(messageData.receiver_id);
+      if (!receiver) {
+        return res.status(404).json({ message: "Receiver not found" });
+      }
+      
+      // Check if messaging is allowed based on roles
+      const senderRole = req.user.role;
+      const receiverRole = receiver.role;
+      
+      // If order_id is provided, verify that both users are related to this order
+      if (messageData.order_id) {
+        const order = await storage.getOrderById(messageData.order_id);
+        if (!order) {
+          return res.status(404).json({ message: "Order not found" });
+        }
+        
+        // Determine if sender is related to the order
+        const isSenderRelated = 
+          (senderRole === "customer" && order.customer_id === req.user.id) ||
+          (senderRole === "junior_baker" && order.junior_baker_id === req.user.id) ||
+          (senderRole === "main_baker" && order.main_baker_id === req.user.id) ||
+          senderRole === "admin";
+        
+        // Determine if receiver is related to the order
+        const isReceiverRelated = 
+          (receiverRole === "customer" && order.customer_id === receiver.id) ||
+          (receiverRole === "junior_baker" && order.junior_baker_id === receiver.id) ||
+          (receiverRole === "main_baker" && order.main_baker_id === receiver.id) ||
+          receiverRole === "admin";
+        
+        if (!isSenderRelated || !isReceiverRelated) {
+          return res.status(403).json({ message: "You can only message users related to this order" });
+        }
+      } else {
+        // Without order_id, apply role-based restrictions
+        
+        // Customer can only message junior_baker or main_baker with order context
+        if (senderRole === "customer") {
+          return res.status(400).json({ message: "Customers can only message bakers about specific orders" });
+        }
+        
+        // Junior baker can only message main baker without order context for promotion/general questions
+        if (senderRole === "junior_baker" && receiverRole !== "main_baker" && receiverRole !== "admin") {
+          return res.status(403).json({ message: "Junior bakers can only message main bakers or admins without order context" });
+        }
+        
+        // Main baker can message junior bakers or admins
+        if (senderRole === "main_baker" && receiverRole !== "junior_baker" && receiverRole !== "admin") {
+          return res.status(403).json({ message: "Main bakers can only message junior bakers or admins without order context" });
+        }
+      }
+      
       const message = await storage.createChatMessage(messageData);
       
       res.status(201).json(message);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid message data", errors: error.errors });
+      }
+      
+      if (error instanceof Error) {
+        return res.status(500).json({ message: error.message });
       }
       
       res.status(500).json({ message: "Failed to send message" });
@@ -568,14 +624,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           user_id: order.junior_baker_id,
           type: "review",
           title: "New Review",
-          message: `Your order #${order.id} has been reviewed by a customer.`,
-          related_id: review.id
+          message: `Your order #${order.id} has been reviewed by a customer.`
         });
       }
       
       res.status(201).json(review);
     } catch (error) {
-      res.status(400).json({ message: error.message });
+      const errorMessage = error instanceof Error ? error.message : "An error occurred";
+      res.status(400).json({ message: errorMessage });
     }
   });
   
