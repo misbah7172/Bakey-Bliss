@@ -54,12 +54,28 @@ A comprehensive e-commerce platform for a bakery business with user roles, produ
      - Set up all necessary tables
      - Populate the database with initial categories and sample products
    - No manual database setup is required!
+   
+   **Manual Database Setup Option:**
+   - If the automatic setup doesn't work, you can use the included `setup-database.bat` file:
+     1. Start XAMPP with MySQL running
+     2. Double-click `setup-database.bat` file
+     3. Follow the prompts to create and set up the database
 
 4. **Start the Application**
-   - Run the development server:
+   
+   **For Windows users:**
+   - Simply double-click the `start-windows.bat` file in the project folder
+   - Or open Command Prompt in the project directory and run:
+   ```
+   start-windows.bat
+   ```
+   
+   **For macOS/Linux users:**
+   - Open Terminal in the project directory and run:
    ```
    npm run dev
    ```
+   
    - The server will start on port 5000
    - You'll see database setup logs in the console
 
@@ -77,13 +93,24 @@ Once the application is running, you can log in using the default admin account:
 
 ### Troubleshooting
 
+- **Windows Environment Variable Issues**
+  - If you see errors about NODE_ENV, use the provided `start-windows.bat` file instead of npm commands
+  - If you get "command not found" errors, make sure Node.js is installed and in your PATH
+  - Command Prompt or PowerShell with Administrator privileges may be required
+
 - **MySQL Connection Issues**
-  - Ensure MySQL is running on port 3306
+  - Ensure XAMPP is running with MySQL service active (green light in XAMPP Control Panel)
+  - Verify MySQL is running on the default port 3306
   - Check that the MySQL username is 'root' with an empty password (XAMPP default)
   - If you've set a different MySQL password, update it in server/database.mjs
+  - If database errors persist, try creating the database manually in phpMyAdmin:
+    1. Open http://localhost/phpmyadmin in your browser
+    2. Click "New" on the left sidebar
+    3. Enter "bakerybliss" as the database name and click "Create"
 
 - **Port Conflicts**
-  - If port 5000 is already in use, you can change it in server/index.ts
+  - If port 5000 is already in use, you'll see a "port already in use" error
+  - Change the port in server/index.ts (line ~73)
   - Remember to restart the server after changing the port
 
 ## Project Structure
