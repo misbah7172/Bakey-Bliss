@@ -27,7 +27,7 @@ const checkoutSchema = z.object({
   zipCode: z.string().min(5, { message: 'Valid zip code is required' }),
   phone: z.string().min(10, { message: 'Valid phone number is required' }),
   specialInstructions: z.string().optional(),
-  paymentMethod: z.enum(['credit_card', 'paypal']),
+  paymentMethod: z.enum(['credit_card', 'paypal', 'cash_on_delivery']),
 });
 
 type CheckoutFormValues = z.infer<typeof checkoutSchema>;
@@ -305,6 +305,12 @@ export default function CheckoutPage() {
                           <RadioGroupItem value="paypal" id="paypal" />
                           <Label htmlFor="paypal" className="flex-1 cursor-pointer">
                             PayPal
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2 border rounded-md p-4">
+                          <RadioGroupItem value="cash_on_delivery" id="cash_on_delivery" />
+                          <Label htmlFor="cash_on_delivery" className="flex-1 cursor-pointer">
+                            Cash on Delivery
                           </Label>
                         </div>
                       </RadioGroup>

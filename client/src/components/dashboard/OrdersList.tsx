@@ -1,12 +1,30 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Order, OrderItem } from '@shared/schema';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ShoppingBag, MessageCircle, Package, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { 
+  ShoppingBag, MessageCircle, Package, Clock, CheckCircle2, AlertCircle, 
+  Download, Truck, Search
+} from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { generateReceipt } from '@/lib/receipt-generator';
+import { useAuth } from '@/hooks/use-auth';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose
+} from '@/components/ui/dialog';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/hooks/use-toast';
 
 interface OrdersListProps {
   role: 'customer' | 'junior_baker' | 'main_baker' | 'admin';
@@ -18,11 +36,104 @@ interface OrderWithItems extends Order {
 
 export default function OrdersList({ role }: OrdersListProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
+  const [isTrackingDialogOpen, setIsTrackingDialogOpen] = useState(false);
+  const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
+  const [orderIdToTrack, setOrderIdToTrack] = useState('');
+  const [trackingError, setTrackingError] = useState('');
   const itemsPerPage = 5;
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const { data: orders, isLoading, error } = useQuery<OrderWithItems[]>({
     queryKey: ['/api/orders'],
   });
+  
+  const { data: deliveryInfo } = useQuery<any>({
+    queryKey: ['/api/orders', selectedOrder?.id, 'delivery-info'],
+    enabled: !!selectedOrder,
+  });
+  
+  // Function to handle order status update by baker
+  const updateOrderStatusMutation = useMutation({
+    mutationFn: async ({ orderId, status }: { orderId: number, status: string }) => {
+      const res = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (!res.ok) throw new Error('Failed to update order status');
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Status Updated",
+        description: "Order status has been successfully updated",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  const handleDownloadReceipt = (order: OrderWithItems) => {
+    if (!user) return;
+    
+    // Generate receipt
+    generateReceipt({
+      orderId: order.id,
+      orderDate: order.created_at || new Date(),
+      totalAmount: order.total_amount,
+      paymentMethod: order.payment_method || 'credit_card',
+      items: order.items.map(item => ({
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        customization: item.customization as Record<string, any>
+      })),
+      deliveryInfo: {
+        address: deliveryInfo?.address || 'N/A',
+        city: deliveryInfo?.city || 'N/A',
+        zipCode: deliveryInfo?.zip_code || 'N/A',
+        phone: deliveryInfo?.phone || 'N/A',
+        specialInstructions: deliveryInfo?.special_instructions
+      },
+      customerName: user.username
+    });
+    
+    toast({
+      title: "Receipt Generated",
+      description: "Your receipt is being downloaded",
+    });
+  };
+  
+  const handleTrackOrder = () => {
+    if (!orderIdToTrack) {
+      setTrackingError('Please enter an order ID');
+      return;
+    }
+    
+    const orderIdNum = parseInt(orderIdToTrack);
+    if (isNaN(orderIdNum)) {
+      setTrackingError('Order ID must be a number');
+      return;
+    }
+    
+    const order = orders?.find(o => o.id === orderIdNum);
+    if (!order) {
+      setTrackingError('Order not found');
+      return;
+    }
+    
+    setSelectedOrder(order);
+    setTrackingError('');
+    setIsTrackingDialogOpen(false);
+    setIsOrderDetailsOpen(true);
+  };
 
   if (isLoading) {
     return (
