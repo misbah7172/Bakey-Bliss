@@ -1,4 +1,4 @@
-import { users, User, InsertUser, categories, Category, InsertCategory, products, Product, InsertProduct, orders, Order, InsertOrder, orderItems, OrderItem, InsertOrderItem, chatMessages, ChatMessage, InsertChatMessage, bakerApplications, BakerApplication, InsertBakerApplication } from "@shared/schema";
+import { users, User, InsertUser, categories, Category, InsertCategory, products, Product, InsertProduct, orders, Order, InsertOrder, orderItems, OrderItem, InsertOrderItem, chatMessages, ChatMessage, InsertChatMessage, bakerApplications, BakerApplication, InsertBakerApplication, orderReviews, OrderReview, InsertOrderReview, notifications, Notification, InsertNotification } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
@@ -55,6 +55,19 @@ export interface IStorage {
   createBakerApplication(application: InsertBakerApplication): Promise<BakerApplication>;
   updateBakerApplicationStatus(id: number, status: string, reviewerId: number): Promise<BakerApplication | undefined>;
   
+  // Order reviews related methods
+  getOrderReviews(orderId: number): Promise<OrderReview[]>;
+  getReviewsByJuniorBaker(juniorBakerId: number): Promise<OrderReview[]>;
+  getJuniorBakerAverageRating(juniorBakerId: number): Promise<number>;
+  createOrderReview(review: InsertOrderReview): Promise<OrderReview>;
+  
+  // Notifications related methods
+  getNotifications(userId: number): Promise<Notification[]>;
+  getUnreadNotificationsCount(userId: number): Promise<number>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: number): Promise<Notification | undefined>;
+  markAllNotificationsAsRead(userId: number): Promise<boolean>;
+  
   // Session store
   sessionStore: session.SessionStore;
 }
@@ -67,6 +80,8 @@ export class MemStorage implements IStorage {
   private orderItems: Map<number, OrderItem>;
   private chatMessages: Map<number, ChatMessage>;
   private bakerApplications: Map<number, BakerApplication>;
+  private orderReviews: Map<number, OrderReview>;
+  private notifications: Map<number, Notification>;
   
   userCurrentId: number;
   categoryCurrentId: number;

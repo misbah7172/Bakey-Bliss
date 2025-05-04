@@ -73,10 +73,21 @@ export const chatMessages = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
   sender_id: integer("sender_id").notNull(),
   receiver_id: integer("receiver_id").notNull(),
-  order_id: integer("order_id"),
+  order_id: integer("order_id"), // Link to specific order
   content: text("content").notNull(),
   read: boolean("read").default(false),
   timestamp: timestamp("timestamp").defaultNow(),
+});
+
+// Order reviews table
+export const orderReviews = pgTable("order_reviews", {
+  id: serial("id").primaryKey(),
+  order_id: integer("order_id").notNull(),
+  customer_id: integer("customer_id").notNull(),
+  junior_baker_id: integer("junior_baker_id").notNull(),
+  rating: integer("rating").notNull(), // 1-5 star rating
+  review_text: text("review_text"),
+  created_at: timestamp("created_at").defaultNow(),
 });
 
 // Baker applications table
@@ -143,6 +154,38 @@ export const customCakeSchema = z.object({
   specialInstructions: z.string().optional(),
 });
 
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull(), // 'order_received', 'status_update', 'chat_message', 'application_status', etc.
+  order_id: integer("order_id"),
+  read: boolean("read").default(false),
+  action_url: text("action_url"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Schema for inserting notifications
+export const insertNotificationSchema = createInsertSchema(notifications).pick({
+  user_id: true,
+  title: true,
+  message: true,
+  type: true,
+  order_id: true,
+  action_url: true,
+});
+
+// Schema for inserting order reviews
+export const insertOrderReviewSchema = createInsertSchema(orderReviews).pick({
+  order_id: true,
+  customer_id: true,
+  junior_baker_id: true,
+  rating: true,
+  review_text: true,
+});
+
 // Custom chocolate schema
 export const customChocolateSchema = z.object({
   shape: z.string(),
@@ -178,3 +221,9 @@ export type InsertBakerApplication = z.infer<typeof insertBakerApplicationSchema
 
 export type CustomCake = z.infer<typeof customCakeSchema>;
 export type CustomChocolate = z.infer<typeof customChocolateSchema>;
+
+export type OrderReview = typeof orderReviews.$inferSelect;
+export type InsertOrderReview = z.infer<typeof insertOrderReviewSchema>;
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
