@@ -54,8 +54,26 @@ goto MENU
 cls
 echo Setting up/resetting database...
 echo.
-setup-database.bat
-goto MENU
+echo Choose database setup method:
+echo 1. Basic setup (only creates essential tables)
+echo 2. Complete setup (creates ALL required tables with sample data)
+echo 3. Back to main menu
+echo.
+set /p dbchoice=Enter your choice (1-3):
+
+if "%dbchoice%"=="1" (
+  setup-database.bat
+  goto MENU
+)
+if "%dbchoice%"=="2" (
+  setup-complete-database.bat
+  goto MENU
+)
+if "%dbchoice%"=="3" (
+  goto MENU
+)
+echo Invalid choice. Please try again.
+goto SETUP_DB
 
 :EXIT
 echo.
