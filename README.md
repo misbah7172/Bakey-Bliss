@@ -63,8 +63,16 @@ A comprehensive e-commerce platform for a bakery business with user roles, produ
 
 4. **Start the Application**
    
-   **For Windows users:**
-   - Simply double-click the `start-windows.bat` file in the project folder
+   **For Windows users (Recommended Method):**
+   - Double-click the `run-bakerybliss.bat` launcher in the project folder
+   - This user-friendly menu lets you:
+     - Start the application 
+     - Check database status
+     - Setup/reset the database
+     - The browser will automatically open to the correct URL
+   
+   **For Windows users (Alternative Method):**
+   - If you prefer direct access, double-click the `start-windows.bat` file
    - Or open Command Prompt in the project directory and run:
    ```
    start-windows.bat
