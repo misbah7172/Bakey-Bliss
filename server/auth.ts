@@ -1,6 +1,6 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
+import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
@@ -29,16 +29,13 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  const sessionSecret = process.env.SESSION_SECRET || "bakerybliss-secret-key-replace-in-production";
-  
   const sessionSettings: session.SessionOptions = {
-    secret: sessionSecret,
+    secret: process.env.SESSION_SECRET || 'bakery-bliss-secret-key',
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
     cookie: {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
-      secure: process.env.NODE_ENV === "production"
     }
   };
 
@@ -52,74 +49,56 @@ export function setupAuth(app: Express) {
       try {
         const user = await storage.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
+          return done(null, false, { message: "Invalid username or password" });
         } else {
           return done(null, user);
         }
-      } catch (err) {
-        return done(err);
+      } catch (error) {
+        return done(error);
       }
     }),
   );
 
   passport.serializeUser((user, done) => done(null, user.id));
-  
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
       done(null, user);
-    } catch (err) {
-      done(err);
+    } catch (error) {
+      done(error);
     }
   });
 
   app.post("/api/register", async (req, res, next) => {
     try {
-      const { username, password, email, fullName, role = "customer" } = req.body;
-      
-      // Validate required fields
-      if (!username || !password) {
-        return res.status(400).json({ message: "Username and password are required" });
-      }
-      
-      const existingUser = await storage.getUserByUsername(username);
+      const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
       }
-      
-      // Create user with hashed password
+
       const user = await storage.createUser({
-        username,
-        password: await hashPassword(password),
-        email,
-        fullName,
-        role
+        ...req.body,
+        password: await hashPassword(req.body.password),
+        role: req.body.role || "customer", // Default role is customer
       });
-      
-      // Remove password from response
-      const { password: _, ...safeUser } = user;
-      
-      // Auto-login the new user
+
       req.login(user, (err) => {
         if (err) return next(err);
-        res.status(201).json(safeUser);
+        res.status(201).json(user);
       });
-    } catch (err) {
-      next(err);
+    } catch (error) {
+      res.status(500).json({ message: "Registration failed" });
     }
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
+    passport.authenticate("local", (err: Error, user: SelectUser, info: any) => {
       if (err) return next(err);
-      if (!user) return res.status(401).json({ message: "Invalid username or password" });
+      if (!user) return res.status(401).json({ message: info.message || "Authentication failed" });
       
       req.login(user, (err) => {
         if (err) return next(err);
-        
-        // Remove password from response
-        const { password, ...safeUser } = user;
-        res.status(200).json(safeUser);
+        return res.status(200).json(user);
       });
     })(req, res, next);
   });
@@ -133,51 +112,25 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    
-    // Remove password from response
-    const { password, ...safeUser } = req.user;
-    res.json(safeUser);
+    res.json(req.user);
   });
-  
-  // Middleware to check if user is authenticated
-  app.use("/api/protected", (req, res, next) => {
-    if (req.isAuthenticated()) {
-      return next();
-    }
-    res.status(401).json({ message: "Unauthorized" });
-  });
-  
+
   // Middleware to check user role
-  const checkRole = (role: string | string[]) => {
-    return (req: Express.Request, res: Express.Response, next: Express.NextFunction) => {
+  const checkRole = (roles: string | string[]) => {
+    return (req: Request, res: Response, next: NextFunction) => {
       if (!req.isAuthenticated()) {
         return res.status(401).json({ message: "Unauthorized" });
       }
+
+      const allowedRoles = Array.isArray(roles) ? roles : [roles];
       
-      const roles = Array.isArray(role) ? role : [role];
-      
-      if (!roles.includes(req.user.role)) {
+      if (!allowedRoles.includes(req.user.role)) {
         return res.status(403).json({ message: "Forbidden: insufficient permissions" });
       }
       
       next();
     };
   };
-  
-  // Admin-only routes
-  app.use("/api/admin", checkRole("admin"), (req, res, next) => {
-    next();
-  });
-  
-  // Baker routes (accessible by main_baker and admin)
-  app.use("/api/baker", checkRole(["main_baker", "admin"]), (req, res, next) => {
-    next();
-  });
-  
-  // Junior baker routes
-  app.use("/api/junior-baker", checkRole(["junior_baker", "main_baker", "admin"]), (req, res, next) => {
-    next();
-  });
-  
+
   return { checkRole };
 }
