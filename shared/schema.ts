@@ -96,6 +96,7 @@ export const bakerApplications = pgTable("baker_applications", {
   user_id: integer("user_id").notNull(),
   current_role: text("current_role").notNull(),
   requested_role: text("requested_role").notNull(),
+  preferred_main_baker_id: integer("preferred_main_baker_id"),
   experience: text("experience"),
   reason: text("reason").notNull(),
   status: text("status").notNull().default("pending"), // 'pending', 'approved', 'rejected'
@@ -139,6 +140,7 @@ export const insertBakerApplicationSchema = createInsertSchema(bakerApplications
   user_id: true,
   current_role: true,
   requested_role: true,
+  preferred_main_baker_id: true,
   experience: true,
   reason: true,
 });
