@@ -11,11 +11,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Send, BarChart3, Award } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Loader2, Send, BarChart3, Award, Star, ChefHat, Users } from 'lucide-react';
+import { User } from '@shared/schema';
 
 // Define the form schema
 const applicationSchema = z.object({
   requested_role: z.enum(['junior_baker', 'main_baker']),
+  preferred_main_baker_id: z.number().optional(),
   experience: z.string().min(50, {
     message: 'Please provide at least 50 characters describing your baking experience.',
   }),
@@ -39,6 +43,18 @@ export default function BakerApplication() {
         setHasApplied(true);
       }
     },
+  });
+
+  // Fetch main bakers for selection
+  const { data: mainBakers = [], isLoading: loadingMainBakers } = useQuery<User[]>({
+    queryKey: ['/api/users/main-bakers'],
+    enabled: !!user,
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/users");
+      // Filter only main bakers from the response
+      const users = await response.json();
+      return users.filter((u: User) => u.role === 'main_baker');
+    }
   });
 
   const form = useForm<ApplicationFormValues>({
@@ -229,6 +245,86 @@ export default function BakerApplication() {
                 </FormItem>
               )}
             />
+            
+            {/* Main Baker Selection for Junior Baker applications */}
+            {form.watch("requested_role") === "junior_baker" && (
+              <FormField
+                control={form.control}
+                name="preferred_main_baker_id"
+                render={({ field }) => (
+                  <FormItem className="space-y-4">
+                    <div>
+                      <FormLabel>Choose a Main Baker</FormLabel>
+                      <FormDescription>
+                        Select a main baker you'd like to work with. Main bakers supervise and mentor junior bakers.
+                      </FormDescription>
+                    </div>
+                    
+                    {loadingMainBakers ? (
+                      <div className="flex justify-center py-4">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
+                    ) : mainBakers.length === 0 ? (
+                      <div className="bg-muted p-4 rounded-md text-center">
+                        <Users className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm font-medium">No main bakers available</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Your application will be assigned to a main baker by the admin.
+                        </p>
+                      </div>
+                    ) : (
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={(value) => field.onChange(parseInt(value))}
+                          defaultValue={field.value?.toString()}
+                          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                        >
+                          {mainBakers.map((baker) => (
+                            <div key={baker.id} className="relative">
+                              <RadioGroupItem
+                                value={baker.id.toString()}
+                                id={`baker-${baker.id}`}
+                                className="absolute right-4 top-4 h-5 w-5"
+                              />
+                              <label
+                                htmlFor={`baker-${baker.id}`}
+                                className="block cursor-pointer rounded-lg border bg-card p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="h-12 w-12">
+                                    <AvatarFallback>
+                                      {baker.username.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="line-clamp-2 flex-1 text-left">
+                                    <p className="font-medium">{baker.username}</p>
+                                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                                      <ChefHat className="h-3 w-3" />
+                                      Main Baker
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="mt-3 flex items-center text-xs">
+                                  <div className="flex items-center gap-0.5 text-amber-500">
+                                    {Array(5).fill(null).map((_, i) => (
+                                      <Star key={i} className="h-3 w-3 fill-current" />
+                                    ))}
+                                  </div>
+                                  <span className="ml-1 text-muted-foreground">
+                                    5.0 · 100+ orders
+                                  </span>
+                                </div>
+                              </label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      </FormControl>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             
             <FormField
               control={form.control}
