@@ -316,9 +316,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const updatedOrder = await storage.updateOrderStatus(id, status);
       
+      // Create notification for customer about status update
+      if (order.customer_id) {
+        await storage.createNotification({
+          user_id: order.customer_id,
+          title: "Order Status Updated",
+          message: `Your order #${id} status has been updated to ${status}`,
+          type: "status_update",
+          order_id: id,
+          action_url: `/dashboard?order=${id}`
+        });
+      }
+      
       res.json(updatedOrder);
     } catch (error) {
       res.status(500).json({ message: "Failed to update order status" });
+    }
+  });
+  
+  // Endpoint to get order delivery info
+  app.get("/api/orders/:id/delivery-info", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    try {
+      const id = parseInt(req.params.id);
+      const order = await storage.getOrderById(id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Check if user has permission to access this order
+      const isCustomer = order.customer_id === req.user.id;
+      const isAssignedBaker = order.main_baker_id === req.user.id || order.junior_baker_id === req.user.id;
+      const isAdmin = req.user.role === "admin";
+      
+      if (!isCustomer && !isAssignedBaker && !isAdmin) {
+        return res.status(403).json({ message: "You don't have permission to access this order" });
+      }
+      
+      // Return delivery info from order, or default empty object if not present
+      res.json(order.delivery_info || {});
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch delivery information" });
     }
   });
 

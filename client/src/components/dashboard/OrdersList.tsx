@@ -30,8 +30,16 @@ interface OrdersListProps {
   role: 'customer' | 'junior_baker' | 'main_baker' | 'admin';
 }
 
-interface OrderWithItems extends Order {
+interface OrderWithItems extends Omit<Order, 'payment_method' | 'delivery_info'> {
   items: OrderItem[];
+  payment_method: string | null;
+  delivery_info?: {
+    address: string;
+    city: string;
+    zip_code: string;
+    phone: string;
+    special_instructions?: string;
+  };
 }
 
 export default function OrdersList({ role }: OrdersListProps) {
@@ -216,6 +224,19 @@ export default function OrdersList({ role }: OrdersListProps) {
 
   return (
     <div className="space-y-4">
+      {/* Order Tracking Button (only for customers) */}
+      {role === 'customer' && (
+        <div className="flex justify-end mb-4">
+          <Button 
+            onClick={() => setIsTrackingDialogOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <Search className="h-4 w-4" />
+            Track Order
+          </Button>
+        </div>
+      )}
+      
       {currentOrders.map((order) => (
         <Card key={order.id} className="overflow-hidden">
           <CardHeader className="pb-2">
@@ -265,10 +286,28 @@ export default function OrdersList({ role }: OrdersListProps) {
           </CardContent>
           <CardFooter className="border-t pt-4 flex justify-between items-center">
             {role === 'customer' ? (
-              <Button variant="outline" size="sm" className="flex items-center gap-1">
-                <MessageCircle className="h-4 w-4" /> 
-                Contact Baker
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex items-center gap-1">
+                  <MessageCircle className="h-4 w-4" /> 
+                  Contact Baker
+                </Button>
+                
+                {/* Download Receipt Button (only for completed/delivered orders) */}
+                {['completed', 'delivered'].includes(order.status) && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-1"
+                    onClick={() => {
+                      setSelectedOrder(order);
+                      handleDownloadReceipt(order);
+                    }}
+                  >
+                    <Download className="h-4 w-4" /> 
+                    Receipt
+                  </Button>
+                )}
+              </div>
             ) : (
               <div className="flex items-center gap-2">
                 <Avatar className="h-6 w-6">
@@ -282,7 +321,14 @@ export default function OrdersList({ role }: OrdersListProps) {
             )}
             
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setSelectedOrder(order);
+                  setIsOrderDetailsOpen(true);
+                }}
+              >
                 Details
               </Button>
               
@@ -294,7 +340,36 @@ export default function OrdersList({ role }: OrdersListProps) {
               
               {(role === 'junior_baker' || role === 'main_baker') && 
                ['pending', 'processing'].includes(order.status) && (
-                <Button variant="default" size="sm">
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  onClick={() => {
+                    setSelectedOrder(order);
+                    
+                    // Determine the next status based on current status
+                    const nextStatus = order.status === 'pending' ? 'processing' : 'completed';
+                    
+                    // Show confirmation toast before updating
+                    toast({
+                      title: `Update Status?`,
+                      description: `Change order status from ${order.status} to ${nextStatus}?`,
+                      action: (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => {
+                            updateOrderStatusMutation.mutate({
+                              orderId: order.id,
+                              status: nextStatus
+                            });
+                          }}
+                        >
+                          Update
+                        </Button>
+                      ),
+                    });
+                  }}
+                >
                   Update Status
                 </Button>
               )}
@@ -329,6 +404,159 @@ export default function OrdersList({ role }: OrdersListProps) {
           </Button>
         </div>
       )}
+      
+      {/* Order Tracking Dialog */}
+      <Dialog open={isTrackingDialogOpen} onOpenChange={setIsTrackingDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Track Your Order</DialogTitle>
+            <DialogDescription>
+              Enter your order ID to check its current status and details.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex flex-col gap-4 py-4">
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Order ID"
+                value={orderIdToTrack}
+                onChange={(e) => setOrderIdToTrack(e.target.value)}
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleTrackOrder}
+                className="shrink-0"
+              >
+                Track
+              </Button>
+            </div>
+            
+            {trackingError && (
+              <p className="text-sm text-destructive">{trackingError}</p>
+            )}
+          </div>
+          
+          <DialogFooter className="sm:justify-start">
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Order Details Dialog */}
+      <Dialog open={isOrderDetailsOpen} onOpenChange={setIsOrderDetailsOpen}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle>Order #{selectedOrder?.id}</DialogTitle>
+            <DialogDescription>
+              Placed on {selectedOrder?.created_at && new Date(selectedOrder.created_at.toString()).toLocaleDateString()}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedOrder && (
+            <div className="space-y-6">
+              {/* Order Status Tracker */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Order Status</h3>
+                <div className="relative">
+                  <Progress 
+                    value={
+                      selectedOrder.status === 'pending' ? 25 :
+                      selectedOrder.status === 'processing' ? 50 :
+                      selectedOrder.status === 'completed' ? 75 :
+                      selectedOrder.status === 'delivered' ? 100 : 25
+                    } 
+                    className="h-2"
+                  />
+                  <div className="flex justify-between mt-2 text-xs">
+                    <div className="flex flex-col items-center">
+                      <Clock className={`h-4 w-4 ${selectedOrder.status === 'pending' ? 'text-primary' : ''}`} />
+                      <span>Pending</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <Package className={`h-4 w-4 ${selectedOrder.status === 'processing' ? 'text-primary' : ''}`} />
+                      <span>Processing</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <CheckCircle2 className={`h-4 w-4 ${selectedOrder.status === 'completed' ? 'text-primary' : ''}`} />
+                      <span>Completed</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <Truck className={`h-4 w-4 ${selectedOrder.status === 'delivered' ? 'text-primary' : ''}`} />
+                      <span>Delivered</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Order Items */}
+              <div>
+                <h3 className="text-sm font-medium mb-3">Order Items</h3>
+                <Accordion type="single" collapsible>
+                  <AccordionItem value="items">
+                    <AccordionTrigger className="text-sm">
+                      {selectedOrder.items.length} {selectedOrder.items.length === 1 ? 'item' : 'items'} - {formatCurrency(selectedOrder.total_amount)}
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3">
+                        {selectedOrder.items.map((item) => (
+                          <div key={item.id} className="flex justify-between items-center">
+                            <div>
+                              <p className="text-sm font-medium">{item.name}</p>
+                              <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                            </div>
+                            <p className="text-sm font-medium">{formatCurrency(item.price * item.quantity)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
+              
+              {/* Payment Info */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Payment Information</h3>
+                <div className="bg-muted p-3 rounded-md text-sm">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-muted-foreground">Method</span>
+                    <span>{selectedOrder.payment_method ? 
+                      selectedOrder.payment_method === 'credit_card' ? 'Credit Card' : 
+                      selectedOrder.payment_method === 'paypal' ? 'PayPal' : 
+                      selectedOrder.payment_method === 'cash_on_delivery' ? 'Cash on Delivery' : 
+                      selectedOrder.payment_method : 'Credit Card'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Amount</span>
+                    <span className="font-medium">{formatCurrency(selectedOrder.total_amount)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Download Receipt (only for completed/delivered orders) */}
+              {role === 'customer' && ['completed', 'delivered'].includes(selectedOrder.status) && (
+                <Button 
+                  variant="default" 
+                  className="w-full"
+                  onClick={() => handleDownloadReceipt(selectedOrder)}
+                >
+                  <Download className="h-4 w-4 mr-2" /> 
+                  Download Receipt
+                </Button>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsOrderDetailsOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

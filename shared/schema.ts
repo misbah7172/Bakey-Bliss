@@ -52,6 +52,8 @@ export const orders = pgTable("orders", {
   junior_baker_id: integer("junior_baker_id"),
   status: text("status").notNull().default("pending"),
   total_amount: doublePrecision("total_amount").notNull(),
+  payment_method: text("payment_method").default("credit_card"),
+  delivery_info: jsonb("delivery_info"),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });
