@@ -1,0 +1,167 @@
+I want to build a full-featured Bakery Website using:
+
+Frontend: React.js (with Context API and React Router)
+
+Backend: PHP (RESTful APIs)
+
+Database: MySQL (normalized to Third Normal Form – 3NF)
+
+👥 User Roles:
+Admin
+
+Customer
+
+Junior Baker
+
+Main Baker
+
+🔐 Authentication System:
+Users can register/login via a PHP backend (use secure hashing like bcrypt).
+
+Session-based or token-based authentication (choose one).
+
+Role-based access control for different user dashboards and actions.
+
+🛒 Product Catalog
+The bakery should support these categories and products:
+
+1. Bread & Loaves
+White Bread, Whole Wheat Bread, Multigrain Bread, Sourdough, Baguettes, etc.
+
+2. Cakes & Pastries
+Birthday Cakes, Wedding Cakes, Cheesecakes, Cupcakes, Macarons, etc.
+
+3. Cookies & Biscuits
+Chocolate Chip Cookies, Oatmeal, Butter, Gingerbread, etc.
+
+4. Pies & Tarts
+Apple Pie, Pumpkin Pie, Lemon Tart, etc.
+
+5. Doughnuts & Croissants
+Glazed Doughnuts, Almond Croissants, etc.
+
+6. Savory Items
+Quiche, Pizza Rolls, Stuffed Buns, etc.
+
+7. Custom Chocolates
+User can order chocolates by customizing:
+
+Shape, Size, Flavors, Fillings, Packaging, Message, Image Upload
+
+8. Seasonal & Special Items
+Holiday items, gift hampers, etc.
+
+9. Beverages
+Optional add-ons: Coffee, Juices, Milkshakes
+
+🎨 Custom Cake Builder
+Allow users to customize cakes with:
+
+Shape, Size, Flavors, Layers, Fillings
+
+Photo upload
+
+Color theme
+
+Custom message
+
+Preview section before adding to cart
+
+🧑‍🍳 Baker Workflow
+All customer orders go to the Main Baker
+
+Main Baker assigns order to a Junior Baker
+
+Junior Baker updates order status (e.g., In Progress, Completed)
+
+Main Baker reviews and marks as "Ready for Delivery"
+
+Customers view live status updates of their orders
+
+🎓 Role Promotion Workflow
+Customers can apply to become Junior Bakers
+
+Admin reviews applications and approves/rejects
+
+Junior Bakers can request promotion to Main Baker after completing X successful orders
+
+Admin handles all promotions and demotions
+
+💬 Internal Communication System
+Build a custom chat module using PHP + MySQL (no Firebase)
+
+Chat flows:
+
+Customer ↔ Assigned Junior Baker (per order)
+
+Junior Baker ↔ Main Baker
+
+Use WebSocket or AJAX polling for real-time chat simulation
+
+📦 Order System
+Users can:
+
+Browse all products
+
+Filter/search by category
+
+Add standard or custom items to cart
+
+Checkout and place an order
+
+Orders are routed to Main Baker and processed as per the workflow
+
+📊 Admin Dashboard
+Manage users, roles, products, orders
+
+View analytics (order count, product popularity)
+
+View and moderate chat system (optional)
+
+Approve/reject baker role requests
+
+👨‍🍳 Main Baker Dashboard
+View and assign customer orders
+
+Communicate with Junior Bakers
+
+Track status and reassign if needed
+
+👩‍🍳 Junior Baker Dashboard
+View assigned tasks
+
+Update progress/status
+
+Communicate with Main Baker & Customers
+
+View order history and feedback
+
+Apply for promotion to Main Baker
+
+👤 Customer Dashboard
+Browse and order products
+
+Customize cakes/chocolates
+
+Track order status
+
+Chat with assigned Junior Baker
+
+Apply to become a Junior Baker
+
+🧠 Database Requirements
+Design the database in Third Normal Form (3NF)
+
+Include all necessary tables:
+
+Users, Roles, Products, Categories, Orders, OrderItems
+
+CustomCakeDetails, CustomChocolateDetails
+
+ChatMessages (with sender_id, receiver_id, order_id, timestamp)
+
+Applications (for role requests)
+
+Use foreign keys and indexed IDs
+
+Many-to-many mappings where applicable (e.g., users ↔ roles)
