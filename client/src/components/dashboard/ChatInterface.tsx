@@ -1,228 +1,264 @@
-import { useState, useRef, useEffect } from 'react';
-import { useChat } from '@/contexts/ChatContext';
-import { useAuth } from '@/hooks/use-auth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageCircle, Send, User } from 'lucide-react';
+import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
+import { useChat } from "@/contexts/ChatContext";
+import { apiRequest } from "@/lib/queryClient";
+import { User } from "@shared/schema";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Send, User as UserIcon } from "lucide-react";
 
 export default function ChatInterface() {
-  const [message, setMessage] = useState('');
-  const [activeTab, setActiveTab] = useState('current');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const { 
+    messages, 
+    activeConversationUser, 
+    setActiveConversationUser, 
+    sendMessage, 
+    markAsRead,
+    loading,
+    unreadCount
+  } = useChat();
+  const [messageText, setMessageText] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Since the actual chat context may not be implemented yet, we'll mock it
-  const fakeChat = {
-    messages: [],
-    activeConversationUser: null,
-    setActiveConversationUser: () => {},
-    sendMessage: async () => {},
-    markAsRead: async () => {},
-    loading: false,
-    error: null,
-    unreadCount: 0
-  };
+  // Query to get all users for potential conversations
+  const { data: users = [], isLoading: loadingUsers } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: !!user,
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/users");
+      return response.json();
+    }
+  });
   
-  const chat = useChat ? useChat() : fakeChat;
-
+  // Scroll to bottom when messages change
   useEffect(() => {
-    // Scroll to the bottom when messages change
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chat.messages]);
-
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+  
+  // Mark unread messages as read when viewing conversation
+  useEffect(() => {
+    if (messages.length > 0 && activeConversationUser) {
+      const unreadMessageIds = messages
+        .filter(msg => msg.receiver_id === user?.id && !msg.read)
+        .map(msg => msg.id);
+      
+      if (unreadMessageIds.length > 0) {
+        markAsRead(unreadMessageIds);
+      }
+    }
+  }, [messages, activeConversationUser, user, markAsRead]);
+  
+  // Handle sending a message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !chat.activeConversationUser) return;
-
-    try {
-      await chat.sendMessage(message, chat.activeConversationUser.id);
-      setMessage('');
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    }
+    
+    if (!messageText.trim() || !activeConversationUser) return;
+    
+    await sendMessage(messageText, activeConversationUser.id);
+    setMessageText("");
   };
-
-  // For demo purposes, let's create some mock data
-  const ordersBakers = [
-    { id: 1, username: 'john_baker', role: 'main_baker', order_id: 123 },
-    { id: 2, username: 'jane_baker', role: 'junior_baker', order_id: 124 }
-  ];
-
-  const renderUserList = () => {
-    if (activeTab === 'current' && (!ordersBakers || ordersBakers.length === 0)) {
-      return (
-        <div className="p-4 text-center">
-          <p className="text-muted-foreground">No bakers assigned to your orders yet.</p>
-        </div>
-      );
+  
+  // Get filtered users (excluding current user)
+  const filteredUsers = users.filter(u => u.id !== user?.id);
+  
+  // Count unread messages per user
+  const unreadByUser = filteredUsers.reduce((acc, user) => {
+    const count = messages.filter(
+      msg => msg.sender_id === user.id && !msg.read
+    ).length;
+    
+    if (count > 0) {
+      acc[user.id] = count;
     }
-
-    return (
-      <div className="space-y-2 p-2">
-        {ordersBakers.map((baker) => (
-          <div
-            key={baker.id}
-            className={`flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-accent/10 ${
-              chat.activeConversationUser?.id === baker.id ? 'bg-accent/20' : ''
-            }`}
-            onClick={() => chat.setActiveConversationUser({ id: baker.id, username: baker.username })}
-          >
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={null} alt={baker.username} />
-              <AvatarFallback>{baker.username.substring(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{baker.username}</p>
-              <p className="text-xs text-muted-foreground">
-                {baker.role === 'main_baker' ? 'Main Baker' : 'Junior Baker'} • Order #{baker.order_id}
-              </p>
-            </div>
-            {/* You would show unread messages count here */}
-          </div>
-        ))}
-      </div>
-    );
+    
+    return acc;
+  }, {} as Record<number, number>);
+  
+  // Format timestamp to readable time
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
-
-  const renderEmptyChat = () => (
-    <div className="flex flex-col items-center justify-center h-full text-center p-6">
-      <MessageCircle className="h-12 w-12 text-muted-foreground mb-2" />
-      <h3 className="text-lg font-medium">No conversation selected</h3>
-      <p className="text-sm text-muted-foreground mt-1">
-        Select a baker from the list to start chatting about your order.
-      </p>
-    </div>
-  );
-
-  const renderChatMessages = () => {
-    if (!chat.activeConversationUser) {
-      return renderEmptyChat();
-    }
-
-    if (chat.loading) {
-      return (
-        <div className="flex justify-center items-center h-full">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      );
-    }
-
-    if (chat.messages.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-center p-6">
-          <MessageCircle className="h-12 w-12 text-muted-foreground mb-2" />
-          <h3 className="text-lg font-medium">No messages yet</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Send a message to start the conversation with {chat.activeConversationUser.username}.
-          </p>
-        </div>
-      );
-    }
-
-    return (
-      <ScrollArea className="h-[400px] pr-4">
-        <div className="space-y-4 p-4">
-          {chat.messages.map((msg) => {
-            const isFromMe = msg.senderId === user?.id;
-            return (
-              <div
-                key={msg.id}
-                className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                    isFromMe
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary text-secondary-foreground'
-                  }`}
-                >
-                  <p>{msg.content}</p>
-                  <p className="text-xs opacity-70 mt-1">
-                    {new Date(msg.timestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
-    );
-  };
-
+  
   return (
-    <div className="flex h-[600px] border rounded-lg overflow-hidden bg-card">
-      {/* User List Panel */}
-      <div className="w-1/3 border-r">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="p-4 border-b">
-            <TabsList className="w-full">
-              <TabsTrigger value="current" className="flex-1">
-                Current
-              </TabsTrigger>
-              <TabsTrigger value="previous" className="flex-1">
-                Previous
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="current" className="mt-0">
-            {renderUserList()}
+    <Card className="w-full h-[600px] flex flex-col">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex justify-between items-center">
+          <span>Messages {unreadCount > 0 && <Badge className="ml-2">{unreadCount}</Badge>}</span>
+        </CardTitle>
+      </CardHeader>
+      
+      <CardContent className="flex-grow p-0 flex">
+        <Tabs defaultValue="chats" className="w-full flex flex-col h-full">
+          <TabsList className="grid grid-cols-2 mb-2 mx-4">
+            <TabsTrigger value="chats">Chats</TabsTrigger>
+            <TabsTrigger value="contacts">Contacts</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="chats" className="flex flex-col flex-grow px-4">
+            {activeConversationUser ? (
+              <>
+                <div className="flex items-center pb-4 border-b">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setActiveConversationUser(null)}
+                    className="mr-2"
+                  >
+                    Back
+                  </Button>
+                  <Avatar className="h-8 w-8 mr-2">
+                    <AvatarFallback>
+                      {activeConversationUser.username.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="font-medium">{activeConversationUser.username}</span>
+                </div>
+                
+                <ScrollArea className="flex-grow my-4 pr-4">
+                  {loading ? (
+                    <div className="flex justify-center items-center h-full">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8">
+                      No messages yet. Start the conversation!
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {messages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`flex ${
+                            message.sender_id === user?.id ? "justify-end" : "justify-start"
+                          }`}
+                        >
+                          <div
+                            className={`max-w-[80%] p-3 rounded-lg ${
+                              message.sender_id === user?.id
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-secondary"
+                            }`}
+                          >
+                            <div className="break-words">{message.content}</div>
+                            <div
+                              className={`text-xs mt-1 ${
+                                message.sender_id === user?.id
+                                  ? "text-primary-foreground/80"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {formatTime(message.timestamp)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      <div ref={messagesEndRef} />
+                    </div>
+                  )}
+                </ScrollArea>
+                
+                <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-2">
+                  <Input
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    placeholder="Type your message..."
+                    className="flex-grow"
+                  />
+                  <Button type="submit" size="icon">
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </form>
+              </>
+            ) : (
+              <div className="flex-grow">
+                <div className="text-sm font-medium mb-2">Recent Conversations</div>
+                {loadingUsers ? (
+                  <div className="flex justify-center items-center h-40">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : filteredUsers.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    No conversations yet.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredUsers.map((u) => (
+                      <div
+                        key={u.id}
+                        onClick={() => setActiveConversationUser({ id: u.id, username: u.username })}
+                        className="flex items-center p-2 rounded-md hover:bg-secondary cursor-pointer"
+                      >
+                        <Avatar className="h-10 w-10 mr-3">
+                          <AvatarFallback>{u.username.charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-grow">
+                          <div className="font-medium">{u.username}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {u.role.charAt(0).toUpperCase() + u.role.slice(1).replace('_', ' ')}
+                          </div>
+                        </div>
+                        {unreadByUser[u.id] && (
+                          <Badge className="ml-2">{unreadByUser[u.id]}</Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </TabsContent>
           
-          <TabsContent value="previous" className="mt-0">
-            <div className="p-4 text-center">
-              <p className="text-muted-foreground">Chat history for previous orders will appear here.</p>
-            </div>
+          <TabsContent value="contacts" className="px-4 flex-grow overflow-auto">
+            <div className="text-sm font-medium mb-2">All Users</div>
+            {loadingUsers ? (
+              <div className="flex justify-center items-center h-40">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                No other users found.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredUsers.map((u) => (
+                  <div
+                    key={u.id}
+                    onClick={() => setActiveConversationUser({ id: u.id, username: u.username })}
+                    className="flex items-center p-2 rounded-md hover:bg-secondary cursor-pointer"
+                  >
+                    <Avatar className="h-10 w-10 mr-3">
+                      <AvatarFallback>{u.username.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-grow">
+                      <div className="font-medium">{u.username}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {u.role.charAt(0).toUpperCase() + u.role.slice(1).replace('_', ' ')}
+                      </div>
+                    </div>
+                    {unreadByUser[u.id] && (
+                      <Badge className="ml-2">{unreadByUser[u.id]}</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
-      </div>
-
-      {/* Chat Panel */}
-      <div className="flex-1 flex flex-col">
-        <CardHeader className="py-3 px-4 border-b">
-          {chat.activeConversationUser ? (
-            <div className="flex items-center">
-              <Avatar className="h-8 w-8 mr-2">
-                <AvatarImage src={null} alt={chat.activeConversationUser.username} />
-                <AvatarFallback>
-                  {chat.activeConversationUser.username.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <CardTitle className="text-base">{chat.activeConversationUser.username}</CardTitle>
-            </div>
-          ) : (
-            <CardTitle className="text-base">Chat</CardTitle>
-          )}
-        </CardHeader>
-
-        <CardContent className="flex-1 p-0 overflow-hidden">
-          {renderChatMessages()}
-        </CardContent>
-
-        {chat.activeConversationUser && (
-          <CardFooter className="p-4 pt-2 border-t">
-            <form onSubmit={handleSendMessage} className="flex w-full gap-2">
-              <Input
-                placeholder="Type your message..."
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                className="flex-1"
-              />
-              <Button type="submit" size="icon" disabled={!message.trim()}>
-                <Send className="h-4 w-4" />
-              </Button>
-            </form>
-          </CardFooter>
-        )}
-      </div>
-    </div>
+      </CardContent>
+      
+      <CardFooter className="pt-2 text-xs text-muted-foreground">
+        Messages are end-to-end encrypted
+      </CardFooter>
+    </Card>
   );
 }

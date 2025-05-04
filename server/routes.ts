@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { insertOrderSchema, insertOrderItemSchema, insertChatMessageSchema, insertBakerApplicationSchema, customCakeSchema, customChocolateSchema } from "@shared/schema";
@@ -9,8 +10,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes and middleware
   const { checkRole } = setupAuth(app);
 
-  // Create HTTP server for potential WebSocket support
+  // Create HTTP server for WebSocket support
   const httpServer = createServer(app);
+  
+  // Set up WebSocket server
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Map to store connected clients by user ID
+  const clients = new Map<number, WebSocket>();
+  
+  wss.on('connection', (ws, req) => {
+    console.log('WebSocket connection established');
+    
+    // Message handling
+    ws.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        if (data.type === 'authenticate') {
+          // Store client connection with user ID
+          clients.set(data.userId, ws);
+          console.log(`User ${data.userId} authenticated via WebSocket`);
+        } else if (data.type === 'chat_message') {
+          // Store message in database
+          const newMessage = await storage.createChatMessage({
+            sender_id: data.senderId,
+            receiver_id: data.receiverId,
+            order_id: data.orderId || null,
+            content: data.content,
+            read: false
+          });
+          
+          // Send message to receiver if they are connected
+          const receiverSocket = clients.get(data.receiverId);
+          if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+            receiverSocket.send(JSON.stringify({
+              type: 'new_message',
+              message: newMessage
+            }));
+          }
+          
+          // Send confirmation back to sender
+          ws.send(JSON.stringify({
+            type: 'message_sent',
+            message: newMessage
+          }));
+        }
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+        ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+      }
+    });
+    
+    // Handle disconnection
+    ws.on('close', () => {
+      // Remove client from the clients map
+      for (const [userId, socket] of clients.entries()) {
+        if (socket === ws) {
+          clients.delete(userId);
+          console.log(`User ${userId} disconnected`);
+          break;
+        }
+      }
+    });
+  });
 
   // Category routes
   app.get("/api/categories", async (req, res) => {
