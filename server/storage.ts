@@ -90,6 +90,8 @@ export class MemStorage implements IStorage {
   orderItemCurrentId: number;
   chatMessageCurrentId: number;
   bakerApplicationCurrentId: number;
+  orderReviewCurrentId: number;
+  notificationCurrentId: number;
   
   sessionStore: session.SessionStore;
 
@@ -101,6 +103,8 @@ export class MemStorage implements IStorage {
     this.orderItems = new Map();
     this.chatMessages = new Map();
     this.bakerApplications = new Map();
+    this.orderReviews = new Map();
+    this.notifications = new Map();
     
     this.userCurrentId = 1;
     this.categoryCurrentId = 1;
@@ -109,6 +113,8 @@ export class MemStorage implements IStorage {
     this.orderItemCurrentId = 1;
     this.chatMessageCurrentId = 1;
     this.bakerApplicationCurrentId = 1;
+    this.orderReviewCurrentId = 1;
+    this.notificationCurrentId = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000, // prune expired entries every 24h
@@ -379,6 +385,87 @@ export class MemStorage implements IStorage {
     };
     this.bakerApplications.set(id, updatedApplication);
     return updatedApplication;
+  }
+  
+  // Order reviews related methods
+  async getOrderReviews(orderId: number): Promise<OrderReview[]> {
+    return Array.from(this.orderReviews.values()).filter(
+      (review) => review.order_id === orderId
+    );
+  }
+  
+  async getReviewsByJuniorBaker(juniorBakerId: number): Promise<OrderReview[]> {
+    return Array.from(this.orderReviews.values()).filter(
+      (review) => review.junior_baker_id === juniorBakerId
+    );
+  }
+  
+  async getJuniorBakerAverageRating(juniorBakerId: number): Promise<number> {
+    const reviews = await this.getReviewsByJuniorBaker(juniorBakerId);
+    if (reviews.length === 0) return 0;
+    
+    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+    return totalRating / reviews.length;
+  }
+  
+  async createOrderReview(review: InsertOrderReview): Promise<OrderReview> {
+    const id = this.orderReviewCurrentId++;
+    const newReview: OrderReview = {
+      ...review,
+      id,
+      created_at: new Date()
+    };
+    this.orderReviews.set(id, newReview);
+    return newReview;
+  }
+  
+  // Notifications related methods
+  async getNotifications(userId: number): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter(notification => notification.user_id === userId)
+      .sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
+  }
+  
+  async getUnreadNotificationsCount(userId: number): Promise<number> {
+    return Array.from(this.notifications.values()).filter(
+      (notification) => notification.user_id === userId && !notification.read
+    ).length;
+  }
+  
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const id = this.notificationCurrentId++;
+    const newNotification: Notification = {
+      ...notification,
+      id,
+      created_at: new Date(),
+      read: false
+    };
+    this.notifications.set(id, newNotification);
+    return newNotification;
+  }
+  
+  async markNotificationAsRead(id: number): Promise<Notification | undefined> {
+    const notification = this.notifications.get(id);
+    if (!notification) return undefined;
+    
+    const updatedNotification = { ...notification, read: true };
+    this.notifications.set(id, updatedNotification);
+    return updatedNotification;
+  }
+  
+  async markAllNotificationsAsRead(userId: number): Promise<boolean> {
+    let success = true;
+    
+    const userNotifications = Array.from(this.notifications.values()).filter(
+      (notification) => notification.user_id === userId && !notification.read
+    );
+    
+    for (const notification of userNotifications) {
+      const updated = await this.markNotificationAsRead(notification.id);
+      if (!updated) success = false;
+    }
+    
+    return success;
   }
   
   // Seed initial categories

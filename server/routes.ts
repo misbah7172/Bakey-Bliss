@@ -511,6 +511,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to update application" });
     }
   });
+  
+  // Order review routes
+  app.get("/api/reviews/order/:id", async (req, res) => {
+    const orderId = parseInt(req.params.id);
+    const reviews = await storage.getOrderReviews(orderId);
+    res.json(reviews);
+  });
+  
+  app.get("/api/reviews/juniorBaker/:id", async (req, res) => {
+    const juniorBakerId = parseInt(req.params.id);
+    const reviews = await storage.getReviewsByJuniorBaker(juniorBakerId);
+    res.json(reviews);
+  });
+  
+  app.get("/api/reviews/juniorBaker/:id/averageRating", async (req, res) => {
+    const juniorBakerId = parseInt(req.params.id);
+    const averageRating = await storage.getJuniorBakerAverageRating(juniorBakerId);
+    res.json({ averageRating });
+  });
+  
+  app.post("/api/reviews", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    try {
+      const reviewData = insertOrderReviewSchema.parse(req.body);
+      
+      // Check if order exists and belongs to the customer
+      const order = await storage.getOrderById(reviewData.order_id);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      if (order.customer_id !== req.user.id) {
+        return res.status(403).json({ message: "You can only review your own orders" });
+      }
+      
+      // Check if order is delivered (can only review completed orders)
+      if (order.status !== "delivered") {
+        return res.status(400).json({ message: "You can only review delivered orders" });
+      }
+      
+      // Check if already reviewed
+      const existingReviews = await storage.getOrderReviews(order.id);
+      if (existingReviews.length > 0) {
+        return res.status(400).json({ message: "Order already reviewed" });
+      }
+      
+      const review = await storage.createOrderReview(reviewData);
+      
+      // Create notification for the junior baker
+      if (order.junior_baker_id) {
+        await storage.createNotification({
+          user_id: order.junior_baker_id,
+          type: "review",
+          title: "New Review",
+          message: `Your order #${order.id} has been reviewed by a customer.`,
+          related_id: review.id
+        });
+      }
+      
+      res.status(201).json(review);
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+  
+  // Notification routes
+  app.get("/api/notifications", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const notifications = await storage.getNotifications(req.user.id);
+    res.json(notifications);
+  });
+  
+  app.get("/api/notifications/unread-count", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const count = await storage.getUnreadNotificationsCount(req.user.id);
+    res.json({ count });
+  });
+  
+  app.post("/api/notifications/:id/read", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const notificationId = parseInt(req.params.id);
+    const notification = await storage.markNotificationAsRead(notificationId);
+    
+    if (!notification) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+    
+    if (notification.user_id !== req.user.id) {
+      return res.status(403).json({ message: "You can only mark your own notifications as read" });
+    }
+    
+    res.json(notification);
+  });
+  
+  app.post("/api/notifications/read-all", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const success = await storage.markAllNotificationsAsRead(req.user.id);
+    res.json({ success });
+  });
 
   // Custom cake validation endpoint
   app.post("/api/validate/custom-cake", (req, res) => {
