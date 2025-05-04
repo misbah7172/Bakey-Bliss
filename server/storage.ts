@@ -489,4 +489,25 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// For Replit compatibility, we'll only use MemStorage by default
+// On real local machines with MySQL, the database-storage.ts can be used instead
+
+// Create memory storage
+const memStorage = new MemStorage();
+
+// Export memory storage as the default storage implementation
+export let storage: IStorage = memStorage;
+
+// Initialize function that just returns memory storage for now
+// In a local environment, this would try to connect to MySQL first
+export async function initializeStorage() {
+  try {
+    // In a real deployment, we would try to connect to the database first
+    // But for Replit we'll use the in-memory storage for easier testing
+    console.log('✅ Using in-memory storage for testing in Replit');
+    return storage;
+  } catch (error) {
+    console.error('❌ Error initializing storage:', error);
+    return storage;
+  }
+}

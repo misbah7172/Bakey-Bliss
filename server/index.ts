@@ -1,9 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-// Dynamically import MySQL database setup
-// This is used for local development with XAMPP
-import * as database from "./database.mjs";
+// Local imports only - we'll use dynamic imports for database setup
+// to avoid errors in environments without MySQL
 
 const app = express();
 app.use(express.json());
@@ -42,10 +41,31 @@ app.use((req, res, next) => {
 (async () => {
   // Setup database - this will create it if it doesn't exist (for local MySQL development)
   try {
-    await database.setupDatabase();
-    log("Database setup completed successfully");
+    log("🔄 Checking database connection...");
+    // Try to dynamically import and setup database
+    const database = await import("./database.mjs").catch(() => {
+      log("⚠️ Database module not available in this environment.");
+      return { setupDatabase: async () => false };
+    });
+    
+    const dbSetupSuccess = await database.setupDatabase();
+    if (dbSetupSuccess) {
+      log("✅ Database setup completed successfully");
+    } else {
+      log("⚠️ Running without MySQL database. Using in-memory storage instead.");
+    }
   } catch (error: any) {
-    log(`Database setup failed: ${error.message}`);
+    log(`❌ Database setup failed: ${error.message}`);
+    log("⚠️ Running without MySQL database. Using in-memory storage instead.");
+  }
+  
+  // Initialize persistent storage (database or memory fallback)
+  try {
+    const { initializeStorage } = await import('./storage');
+    await initializeStorage();
+    log("✅ Storage initialized successfully");
+  } catch (error: any) {
+    log(`❌ Storage initialization failed: ${error.message}`);
   }
   
   const server = await registerRoutes(app);
