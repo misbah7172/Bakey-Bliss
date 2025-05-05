@@ -490,29 +490,48 @@ export class MemStorage implements IStorage {
 }
 
 import { DatabaseStorage } from './database-storage';
+import { PostgresStorage } from './postgres-storage';
 
-// Create both storage options
+// Create all storage options
 const memStorage = new MemStorage();
-const dbStorage = new DatabaseStorage();
+const mysqlStorage = new DatabaseStorage();
+const postgresStorage = new PostgresStorage();
 
 // Initially use memory storage until we initialize
 export let storage: IStorage = memStorage;
 
-// Initialize storage - try database first, fall back to memory if unavailable
+// Initialize storage - try different database connections based on environment
 export async function initializeStorage() {
   try {
-    // Try to initialize database storage first
-    const success = await dbStorage.initialize();
+    // Determine if we're running in Replit by checking for DATABASE_URL environment variable
+    const isReplit = process.env.DATABASE_URL !== undefined;
     
-    if (success) {
-      console.log('✅ Using MySQL database for storage');
-      // Switch to database storage
-      storage = dbStorage;
+    if (isReplit) {
+      // Try to initialize PostgreSQL storage first
+      const pgSuccess = await postgresStorage.initialize();
+      
+      if (pgSuccess) {
+        console.log('✅ Using PostgreSQL database for storage (Replit)');
+        // Switch to PostgreSQL storage
+        storage = postgresStorage;
+        return storage;
+      }
     } else {
-      console.log('⚠️ Database connection failed, using in-memory storage');
-      // Continue using memory storage
-      storage = memStorage;
+      // Try to initialize MySQL storage for local development
+      const mysqlSuccess = await mysqlStorage.initialize();
+      
+      if (mysqlSuccess) {
+        console.log('✅ Using MySQL database for storage (local)');
+        // Switch to MySQL storage
+        storage = mysqlStorage;
+        return storage;
+      }
     }
+    
+    // If we get here, all database connections failed
+    console.log('⚠️ All database connections failed, using in-memory storage');
+    // Continue using memory storage
+    storage = memStorage;
   } catch (error) {
     console.error('❌ Error initializing storage:', error);
     console.log('⚠️ Falling back to in-memory storage');
