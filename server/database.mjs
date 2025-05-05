@@ -3,12 +3,13 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Database configuration for XAMPP
+// Database configuration for XAMPP (C:\xampp)
 const dbConfig = {
   host: 'localhost',
   user: 'root',
   password: '', // Default XAMPP password is empty
-  port: 3306
+  port: 3306,
+  socketPath: process.platform === 'win32' ? null : undefined // Allow XAMPP to be found on Windows
 };
 
 // Database name
@@ -62,10 +63,13 @@ async function setupDatabase() {
     }
     
     // Return config with database
-    return {
+    const config = {
       ...dbConfig,
       database: DB_NAME
     };
+    
+    // For the setupDatabase function, we'll return true to indicate success
+    return true;
   } catch (error) {
     console.error('❌ Database setup failed:', error.message);
     // Don't throw error, just return null

@@ -69,7 +69,7 @@ export interface IStorage {
   markAllNotificationsAsRead(userId: number): Promise<boolean>;
   
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: any; // Using any for session store to avoid type conflicts
 }
 
 export class MemStorage implements IStorage {
@@ -93,7 +93,7 @@ export class MemStorage implements IStorage {
   orderReviewCurrentId: number;
   notificationCurrentId: number;
   
-  sessionStore: session.SessionStore;
+  sessionStore: any;
 
   constructor() {
     this.users = new Map();
@@ -489,25 +489,36 @@ export class MemStorage implements IStorage {
   }
 }
 
-// For Replit compatibility, we'll only use MemStorage by default
-// On real local machines with MySQL, the database-storage.ts can be used instead
+import { DatabaseStorage } from './database-storage';
 
-// Create memory storage
+// Create both storage options
 const memStorage = new MemStorage();
+const dbStorage = new DatabaseStorage();
 
-// Export memory storage as the default storage implementation
+// Initially use memory storage until we initialize
 export let storage: IStorage = memStorage;
 
-// Initialize function that just returns memory storage for now
-// In a local environment, this would try to connect to MySQL first
+// Initialize storage - try database first, fall back to memory if unavailable
 export async function initializeStorage() {
   try {
-    // In a real deployment, we would try to connect to the database first
-    // But for Replit we'll use the in-memory storage for easier testing
-    console.log('✅ Using in-memory storage for testing in Replit');
-    return storage;
+    // Try to initialize database storage first
+    const success = await dbStorage.initialize();
+    
+    if (success) {
+      console.log('✅ Using MySQL database for storage');
+      // Switch to database storage
+      storage = dbStorage;
+    } else {
+      console.log('⚠️ Database connection failed, using in-memory storage');
+      // Continue using memory storage
+      storage = memStorage;
+    }
   } catch (error) {
     console.error('❌ Error initializing storage:', error);
-    return storage;
+    console.log('⚠️ Falling back to in-memory storage');
+    // Continue using memory storage
+    storage = memStorage;
   }
+  
+  return storage;
 }
