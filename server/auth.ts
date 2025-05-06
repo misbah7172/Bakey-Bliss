@@ -76,17 +76,28 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Username already exists" });
       }
 
+      // Validate role
+      const validRoles = ['customer', 'admin', 'main_baker', 'junior_baker'];
+      const role = req.body.role || 'customer';
+      
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({ message: "Invalid role specified" });
+      }
+
       const user = await storage.createUser({
         ...req.body,
         password: await hashPassword(req.body.password),
-        role: req.body.role || "customer", // Default role is customer
+        role: role,
       });
+
+      console.log('User registered:', { id: user.id, username: user.username, role: user.role });
 
       req.login(user, (err) => {
         if (err) return next(err);
         res.status(201).json(user);
       });
     } catch (error) {
+      console.error('Registration error:', error);
       res.status(500).json({ message: "Registration failed" });
     }
   });
@@ -95,6 +106,8 @@ export function setupAuth(app: Express) {
     passport.authenticate("local", (err: Error, user: SelectUser, info: any) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: info.message || "Authentication failed" });
+      
+      console.log('User logged in:', { id: user.id, username: user.username, role: user.role });
       
       req.login(user, (err) => {
         if (err) return next(err);
@@ -112,6 +125,7 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
+    console.log('User session:', { id: req.user.id, username: req.user.username, role: req.user.role });
     res.json(req.user);
   });
   

@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useChat } from "@/contexts/ChatContext";
+import { Message } from "@/contexts/ChatContext";
 import { apiRequest } from "@/lib/queryClient";
 import { User } from "@shared/schema";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -39,21 +40,26 @@ export default function ChatInterface() {
   
   // Scroll to bottom when messages change
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
+    if (!messagesEndRef.current || !messages.length) return;
+    
+    const scrollToBottom = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    // Use requestAnimationFrame to ensure the DOM has updated
+    requestAnimationFrame(scrollToBottom);
+  }, [messages.length]); // Only depend on messages length
   
   // Mark unread messages as read when viewing conversation
   useEffect(() => {
-    if (messages.length > 0 && activeConversationUser) {
-      const unreadMessageIds = messages
-        .filter(msg => msg.receiver_id === user?.id && !msg.read)
-        .map(msg => msg.id);
-      
-      if (unreadMessageIds.length > 0) {
-        markAsRead(unreadMessageIds);
-      }
+    if (!messages.length || !activeConversationUser || !user) return;
+    
+    const unreadMessageIds = messages
+      .filter(msg => msg.receiver_id === user.id && !msg.read)
+      .map(msg => msg.id);
+    
+    if (unreadMessageIds.length > 0) {
+      markAsRead(unreadMessageIds);
     }
   }, [messages, activeConversationUser, user, markAsRead]);
   
@@ -63,47 +69,54 @@ export default function ChatInterface() {
     
     if (!messageText.trim() || !activeConversationUser) return;
     
-    await sendMessage(messageText, activeConversationUser.id);
-    setMessageText("");
+    try {
+      await sendMessage(messageText, activeConversationUser.id);
+      setMessageText("");
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
   };
   
   // Get filtered users based on role restrictions
-  const filteredUsers = users.filter(u => {
-    // Don't show current user
-    if (u.id === user?.id) return false;
+  const filteredUsers = useMemo(() => {
+    if (!users.length || !user) return [];
     
-    // Role-based filtering
-    if (user?.role === "customer") {
-      // Customers can only chat with junior_baker, main_baker or admin
-      return ["junior_baker", "main_baker", "admin"].includes(u.role);
-    } else if (user?.role === "junior_baker") {
-      // Junior bakers can chat with customers, main_baker or admin
-      return ["customer", "main_baker", "admin"].includes(u.role);
-    } else if (user?.role === "main_baker") {
-      // Main bakers can chat with customers, junior_baker or admin
-      return ["customer", "junior_baker", "admin"].includes(u.role);
-    } else if (user?.role === "admin") {
-      // Admins can chat with anyone
-      return true;
-    }
-    return false;
-  });
+    return users.filter(u => {
+      // Don't show current user
+      if (u.id === user.id) return false;
+      
+      // Role-based filtering
+      if (user.role === "customer") {
+        return ["junior_baker", "main_baker", "admin"].includes(u.role);
+      } else if (user.role === "junior_baker") {
+        return ["customer", "main_baker", "admin"].includes(u.role);
+      } else if (user.role === "main_baker") {
+        return ["customer", "junior_baker", "admin"].includes(u.role);
+      } else if (user.role === "admin") {
+        return true;
+      }
+      return false;
+    });
+  }, [users, user]);
   
   // Count unread messages per user
-  const unreadByUser = filteredUsers.reduce((acc, user) => {
-    const count = messages.filter(
-      msg => msg.sender_id === user.id && !msg.read
-    ).length;
-    
-    if (count > 0) {
-      acc[user.id] = count;
-    }
-    
-    return acc;
-  }, {} as Record<number, number>);
+  const unreadByUser = useMemo(() => {
+    return filteredUsers.reduce((acc, user) => {
+      const count = messages.filter(
+        msg => msg.sender_id === user.id && !msg.read
+      ).length;
+      
+      if (count > 0) {
+        acc[user.id] = count;
+      }
+      
+      return acc;
+    }, {} as Record<number, number>);
+  }, [filteredUsers, messages]);
   
   // Format timestamp to readable time
-  const formatTime = (timestamp: string) => {
+  const formatTime = (timestamp: string | Date | null) => {
+    if (!timestamp) return '';
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };

@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   password VARCHAR(255) NOT NULL,
   email VARCHAR(100),
   full_name VARCHAR(100),
-  role VARCHAR(20) NOT NULL DEFAULT 'customer',
+  role ENUM('customer', 'admin', 'main_baker', 'junior_baker') NOT NULL DEFAULT 'customer',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   receiver_id INT NOT NULL,
   order_id INT,
   content TEXT NOT NULL,
-  read BOOLEAN DEFAULT FALSE,
+  is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   message TEXT NOT NULL,
   type VARCHAR(50) NOT NULL,
   order_id INT,
-  read BOOLEAN DEFAULT FALSE,
+  is_read BOOLEAN DEFAULT FALSE,
   action_url VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

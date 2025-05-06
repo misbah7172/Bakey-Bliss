@@ -5,14 +5,14 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
-interface Message {
+export interface Message {
   id: number;
   sender_id: number;
   receiver_id: number;
   order_id: number | null;
   content: string;
-  timestamp: string;
-  read: boolean;
+  timestamp: string | Date | null;
+  read: boolean | null;
 }
 
 interface ChatContextType {
@@ -100,63 +100,87 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return;
     
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 3;
+    let reconnectTimeout: NodeJS.Timeout;
     
-    const newSocket = new WebSocket(wsUrl);
-    
-    newSocket.onopen = () => {
-      console.log("WebSocket connection established");
-      // Authenticate the WebSocket connection
-      newSocket.send(JSON.stringify({
-        type: "authenticate",
-        userId: user.id
-      }));
-    };
-    
-    newSocket.onmessage = (event) => {
+    const connectWebSocket = () => {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.hostname}:5000/ws`;
+      
       try {
-        const data = JSON.parse(event.data);
+        const newSocket = new WebSocket(wsUrl);
         
-        if (data.type === "new_message") {
-          // Update messages if the message is from the active conversation
-          if (activeConversationUser && 
-              (data.message.sender_id === activeConversationUser.id || 
-               data.message.receiver_id === activeConversationUser.id)) {
-            queryClient.invalidateQueries({ queryKey: ["/api/messages", activeConversationUser.id] });
+        newSocket.onopen = () => {
+          console.log("WebSocket connection established");
+          reconnectAttempts = 0; // Reset reconnect attempts on successful connection
+          // Authenticate the WebSocket connection
+          newSocket.send(JSON.stringify({
+            type: "authenticate",
+            userId: user.id
+          }));
+        };
+        
+        newSocket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === "new_message") {
+              // Update messages if the message is from the active conversation
+              if (activeConversationUser && 
+                  (data.message.sender_id === activeConversationUser.id || 
+                   data.message.receiver_id === activeConversationUser.id)) {
+                queryClient.invalidateQueries({ queryKey: ["/api/messages", activeConversationUser.id] });
+              }
+              
+              // Update unread count for all new messages
+              queryClient.invalidateQueries({ queryKey: ["/api/messages/unread-count"] });
+              
+              // Show notification for new messages
+              if (data.message.sender_id !== user.id) {
+                toast({
+                  title: "New Message",
+                  description: data.message.content.substring(0, 50) + (data.message.content.length > 50 ? "..." : ""),
+                });
+              }
+            }
+          } catch (error) {
+            console.error("Error parsing WebSocket message:", error);
           }
-          
-          // Update unread count for all new messages
-          queryClient.invalidateQueries({ queryKey: ["/api/messages/unread-count"] });
-          
-          // Show notification for new messages
-          if (data.message.sender_id !== user.id) {
-            toast({
-              title: "New Message",
-              description: data.message.content.substring(0, 50) + (data.message.content.length > 50 ? "..." : ""),
-            });
+        };
+        
+        newSocket.onerror = (error) => {
+          console.error("WebSocket error:", error);
+          setError("WebSocket connection error");
+        };
+        
+        newSocket.onclose = () => {
+          console.log("WebSocket connection closed");
+          // Attempt to reconnect if we haven't exceeded max attempts
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            reconnectTimeout = setTimeout(connectWebSocket, 2000 * reconnectAttempts); // Exponential backoff
           }
-        }
+        };
+        
+        setSocket(newSocket);
       } catch (error) {
-        console.error("Error parsing WebSocket message:", error);
+        console.error("Error creating WebSocket:", error);
+        setError("Failed to create WebSocket connection");
       }
     };
     
-    newSocket.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      setError("WebSocket connection error");
-    };
-    
-    newSocket.onclose = () => {
-      console.log("WebSocket connection closed");
-    };
-    
-    setSocket(newSocket);
+    connectWebSocket();
     
     return () => {
-      newSocket.close();
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close();
+      }
     };
-  }, [user, queryClient, toast]);
+  }, [user, queryClient, toast]); // Remove activeConversationUser from dependencies
   
   // Send message function (tries WebSocket first, falls back to REST API)
   const sendMessage = useCallback(

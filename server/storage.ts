@@ -1,8 +1,21 @@
 import { users, User, InsertUser, categories, Category, InsertCategory, products, Product, InsertProduct, orders, Order, InsertOrder, orderItems, OrderItem, InsertOrderItem, chatMessages, ChatMessage, InsertChatMessage, bakerApplications, BakerApplication, InsertBakerApplication, orderReviews, OrderReview, InsertOrderReview, notifications, Notification, InsertNotification } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
+import MySQLStore from "express-mysql-session";
+import { pool } from "./db";
+import express, { type Request, Response, NextFunction } from "express";
 
 const MemoryStore = createMemoryStore(session);
+
+// Create MySQL session store options
+const sessionStoreOptions = {
+  host: 'localhost',
+  port: 3306,
+  user: 'root',
+  password: '',
+  database: 'bakerybliss',
+  createDatabaseTable: true
+};
 
 // modify the interface with any CRUD methods
 // you might need
@@ -489,13 +502,377 @@ export class MemStorage implements IStorage {
   }
 }
 
-import { DatabaseStorage } from './database-storage';
-import { PostgresStorage } from './postgres-storage';
+export class MySQLStorage implements IStorage {
+  sessionStore: any;
+
+  constructor() {
+    // Initialize session store with proper options
+    const SessionStore = MySQLStore(session);
+    this.sessionStore = new SessionStore(sessionStoreOptions, pool);
+  }
+
+  // User related methods
+  async getUsers(): Promise<User[]> {
+    const [rows] = await pool.query('SELECT * FROM users');
+    return rows as User[];
+  }
+
+  async getUser(id: number): Promise<User | undefined> {
+    const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
+    return (rows as User[])[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [rows] = await pool.query('SELECT * FROM users WHERE username = ?', [username]);
+    return (rows as User[])[0];
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const [result] = await pool.query(
+      'INSERT INTO users (username, password, email, full_name, role) VALUES (?, ?, ?, ?, ?)',
+      [user.username, user.password, user.email || null, user.fullName || null, user.role || 'customer']
+    );
+    const id = (result as any).insertId;
+    return this.getUser(id) as Promise<User>;
+  }
+
+  async updateUserRole(userId: number, role: string): Promise<User | undefined> {
+    await pool.query('UPDATE users SET role = ? WHERE id = ?', [role, userId]);
+    return this.getUser(userId);
+  }
+
+  // Category related methods
+  async getCategories(): Promise<Category[]> {
+    const [rows] = await pool.query('SELECT * FROM categories');
+    return rows as Category[];
+  }
+
+  async getCategoryById(id: number): Promise<Category | undefined> {
+    const [rows] = await pool.query('SELECT * FROM categories WHERE id = ?', [id]);
+    return (rows as Category[])[0];
+  }
+
+  async createCategory(category: InsertCategory): Promise<Category> {
+    const [result] = await pool.query(
+      'INSERT INTO categories (name, description) VALUES (?, ?)',
+      [category.name, category.description || null]
+    );
+    const id = (result as any).insertId;
+    return this.getCategoryById(id) as Promise<Category>;
+  }
+
+  // Product related methods
+  async getProducts(): Promise<Product[]> {
+    const [rows] = await pool.query('SELECT * FROM products');
+    return rows as Product[];
+  }
+
+  async getProductById(id: number): Promise<Product | undefined> {
+    const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
+    return (rows as Product[])[0];
+  }
+
+  async getProductsByCategory(categoryId: number): Promise<Product[]> {
+    const [rows] = await pool.query('SELECT * FROM products WHERE category_id = ?', [categoryId]);
+    return rows as Product[];
+  }
+
+  async getFeaturedProducts(): Promise<Product[]> {
+    const [rows] = await pool.query('SELECT * FROM products WHERE is_featured = TRUE');
+    return rows as Product[];
+  }
+
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const [result] = await pool.query(
+      'INSERT INTO products (name, description, price, image, category_id, is_featured, is_new) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        product.name,
+        product.description,
+        product.price,
+        product.image,
+        product.category_id,
+        product.is_featured || false,
+        product.is_new || false
+      ]
+    );
+    const id = (result as any).insertId;
+    return this.getProductById(id) as Promise<Product>;
+  }
+
+  async updateProduct(id: number, product: Partial<Product>): Promise<Product | undefined> {
+    const updates = Object.entries(product)
+      .filter(([key]) => key !== 'id')
+      .map(([key]) => `${key} = ?`);
+    const values = Object.values(product).filter(value => value !== undefined);
+    
+    if (updates.length === 0) return this.getProductById(id);
+    
+    await pool.query(
+      `UPDATE products SET ${updates.join(', ')} WHERE id = ?`,
+      [...values, id]
+    );
+    return this.getProductById(id);
+  }
+
+  async deleteProduct(id: number): Promise<boolean> {
+    const [result] = await pool.query('DELETE FROM products WHERE id = ?', [id]);
+    return (result as any).affectedRows > 0;
+  }
+
+  // Chat messages related methods
+  async getChatMessages(senderId: number, receiverId: number): Promise<ChatMessage[]> {
+    const [rows] = await pool.query(
+      'SELECT * FROM chat_messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) ORDER BY created_at ASC',
+      [senderId, receiverId, receiverId, senderId]
+    );
+    return rows as ChatMessage[];
+  }
+
+  async getUnreadMessageCount(userId: number): Promise<number> {
+    const [rows] = await pool.query(
+      'SELECT COUNT(*) as count FROM chat_messages WHERE receiver_id = ? AND is_read = FALSE',
+      [userId]
+    );
+    return (rows as any)[0].count;
+  }
+
+  async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
+    const [result] = await pool.query(
+      'INSERT INTO chat_messages (sender_id, receiver_id, order_id, content, is_read) VALUES (?, ?, ?, ?, FALSE)',
+      [message.sender_id, message.receiver_id, message.order_id || null, message.content]
+    );
+    const id = (result as any).insertId;
+    const [rows] = await pool.query('SELECT * FROM chat_messages WHERE id = ?', [id]);
+    return (rows as ChatMessage[])[0];
+  }
+
+  async markMessagesAsRead(messageIds: number[]): Promise<boolean> {
+    if (messageIds.length === 0) return true;
+    const [result] = await pool.query(
+      'UPDATE chat_messages SET is_read = TRUE WHERE id IN (?)',
+      [messageIds]
+    );
+    return (result as any).affectedRows > 0;
+  }
+
+  // Baker applications related methods
+  async getBakerApplications(): Promise<BakerApplication[]> {
+    const [rows] = await pool.query('SELECT * FROM baker_applications');
+    return rows as BakerApplication[];
+  }
+
+  async getBakerApplicationById(id: number): Promise<BakerApplication | undefined> {
+    const [rows] = await pool.query('SELECT * FROM baker_applications WHERE id = ?', [id]);
+    return (rows as BakerApplication[])[0];
+  }
+
+  async getBakerApplicationsByUser(userId: number): Promise<BakerApplication[]> {
+    const [rows] = await pool.query('SELECT * FROM baker_applications WHERE user_id = ?', [userId]);
+    return rows as BakerApplication[];
+  }
+
+  async createBakerApplication(application: InsertBakerApplication): Promise<BakerApplication> {
+    const [result] = await pool.query(
+      'INSERT INTO baker_applications (user_id, current_role, requested_role, experience, reason, preferred_main_baker_id, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        application.user_id,
+        application.current_role,
+        application.requested_role,
+        application.experience || null,
+        application.reason,
+        application.preferred_main_baker_id || null,
+        'pending'
+      ]
+    );
+    const id = (result as any).insertId;
+    return this.getBakerApplicationById(id) as Promise<BakerApplication>;
+  }
+
+  async updateBakerApplicationStatus(id: number, status: string, reviewerId: number): Promise<BakerApplication | undefined> {
+    await pool.query(
+      'UPDATE baker_applications SET status = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?',
+      [status, reviewerId, id]
+    );
+    return this.getBakerApplicationById(id);
+  }
+
+  // Order items related methods
+  async getOrderItems(orderId: number): Promise<OrderItem[]> {
+    const [rows] = await pool.query('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
+    return rows as OrderItem[];
+  }
+
+  async createOrderItem(item: InsertOrderItem): Promise<OrderItem> {
+    const [result] = await pool.query(
+      'INSERT INTO order_items (order_id, product_id, name, price, quantity, type, customization) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        item.order_id,
+        item.product_id || null,
+        item.name,
+        item.price,
+        item.quantity,
+        item.type,
+        item.customization ? JSON.stringify(item.customization) : null
+      ]
+    );
+    const id = (result as any).insertId;
+    const [rows] = await pool.query('SELECT * FROM order_items WHERE id = ?', [id]);
+    return (rows as OrderItem[])[0];
+  }
+
+  // Order reviews related methods
+  async getOrderReviews(orderId: number): Promise<OrderReview[]> {
+    const [rows] = await pool.query('SELECT * FROM order_reviews WHERE order_id = ?', [orderId]);
+    return rows as OrderReview[];
+  }
+
+  async getReviewsByJuniorBaker(juniorBakerId: number): Promise<OrderReview[]> {
+    const [rows] = await pool.query('SELECT * FROM order_reviews WHERE junior_baker_id = ?', [juniorBakerId]);
+    return rows as OrderReview[];
+  }
+
+  async getJuniorBakerAverageRating(juniorBakerId: number): Promise<number> {
+    const [rows] = await pool.query(
+      'SELECT AVG(rating) as avg_rating FROM order_reviews WHERE junior_baker_id = ?',
+      [juniorBakerId]
+    );
+    return (rows as any)[0].avg_rating || 0;
+  }
+
+  async createOrderReview(review: InsertOrderReview): Promise<OrderReview> {
+    const [result] = await pool.query(
+      'INSERT INTO order_reviews (order_id, customer_id, junior_baker_id, rating, review_text) VALUES (?, ?, ?, ?, ?)',
+      [review.order_id, review.customer_id, review.junior_baker_id, review.rating, review.review_text || null]
+    );
+    const id = (result as any).insertId;
+    const [rows] = await pool.query('SELECT * FROM order_reviews WHERE id = ?', [id]);
+    return (rows as OrderReview[])[0];
+  }
+
+  // Notifications related methods
+  async getNotifications(userId: number): Promise<Notification[]> {
+    const [rows] = await pool.query(
+      'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC',
+      [userId]
+    );
+    return rows as Notification[];
+  }
+
+  async getUnreadNotificationsCount(userId: number): Promise<number> {
+    const [rows] = await pool.query(
+      'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = FALSE',
+      [userId]
+    );
+    return (rows as any)[0].count;
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [result] = await pool.query(
+      'INSERT INTO notifications (user_id, title, message, type, order_id, action_url, is_read) VALUES (?, ?, ?, ?, ?, ?, FALSE)',
+      [
+        notification.user_id,
+        notification.title,
+        notification.message,
+        notification.type,
+        notification.order_id || null,
+        notification.action_url || null
+      ]
+    );
+    const id = (result as any).insertId;
+    const [rows] = await pool.query('SELECT * FROM notifications WHERE id = ?', [id]);
+    return (rows as Notification[])[0];
+  }
+
+  async markNotificationAsRead(id: number): Promise<Notification | undefined> {
+    await pool.query('UPDATE notifications SET is_read = TRUE WHERE id = ?', [id]);
+    const [rows] = await pool.query('SELECT * FROM notifications WHERE id = ?', [id]);
+    return (rows as Notification[])[0];
+  }
+
+  async markAllNotificationsAsRead(userId: number): Promise<boolean> {
+    const [result] = await pool.query(
+      'UPDATE notifications SET is_read = TRUE WHERE user_id = ? AND is_read = FALSE',
+      [userId]
+    );
+    return (result as any).affectedRows > 0;
+  }
+
+  // Order related methods
+  async getOrders(): Promise<Order[]> {
+    const [rows] = await pool.query('SELECT * FROM orders ORDER BY created_at DESC');
+    return rows as Order[];
+  }
+
+  async getOrderById(id: number): Promise<Order | undefined> {
+    const [rows] = await pool.query('SELECT * FROM orders WHERE id = ?', [id]);
+    return (rows as Order[])[0];
+  }
+
+  async getOrdersByCustomer(customerId: number): Promise<Order[]> {
+    const [rows] = await pool.query('SELECT * FROM orders WHERE customer_id = ? ORDER BY created_at DESC', [customerId]);
+    return rows as Order[];
+  }
+
+  async getOrdersByMainBaker(bakerId: number): Promise<Order[]> {
+    const [rows] = await pool.query('SELECT * FROM orders WHERE main_baker_id = ? ORDER BY created_at DESC', [bakerId]);
+    return rows as Order[];
+  }
+
+  async getOrdersByJuniorBaker(bakerId: number): Promise<Order[]> {
+    const [rows] = await pool.query('SELECT * FROM orders WHERE junior_baker_id = ? ORDER BY created_at DESC', [bakerId]);
+    return rows as Order[];
+  }
+
+  async createOrder(order: InsertOrder): Promise<Order> {
+    const [result] = await pool.query(
+      'INSERT INTO orders (customer_id, main_baker_id, junior_baker_id, status, total_amount, payment_method, delivery_info) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        order.customer_id,
+        order.main_baker_id || null,
+        order.junior_baker_id || null,
+        order.status || 'pending',
+        order.total_amount,
+        order.payment_method || 'credit_card',
+        order.delivery_info ? JSON.stringify(order.delivery_info) : null
+      ]
+    );
+    const id = (result as any).insertId;
+    return this.getOrderById(id) as Promise<Order>;
+  }
+
+  async updateOrderStatus(id: number, status: string): Promise<Order | undefined> {
+    await pool.query('UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?', [status, id]);
+    return this.getOrderById(id);
+  }
+
+  async assignOrderToBaker(orderId: number, mainBakerId?: number, juniorBakerId?: number): Promise<Order | undefined> {
+    const updates = [];
+    const values = [];
+    
+    if (mainBakerId !== undefined) {
+      updates.push('main_baker_id = ?');
+      values.push(mainBakerId);
+    }
+    if (juniorBakerId !== undefined) {
+      updates.push('junior_baker_id = ?');
+      values.push(juniorBakerId);
+    }
+    
+    if (updates.length === 0) return this.getOrderById(orderId);
+    
+    updates.push('updated_at = NOW()');
+    
+    await pool.query(
+      `UPDATE orders SET ${updates.join(', ')} WHERE id = ?`,
+      [...values, orderId]
+    );
+    return this.getOrderById(orderId);
+  }
+}
 
 // Create all storage options
 const memStorage = new MemStorage();
-const mysqlStorage = new DatabaseStorage();
-const postgresStorage = new PostgresStorage();
+const mysqlStorage = new MySQLStorage();
 
 // Initially use memory storage until we initialize
 export let storage: IStorage = memStorage;
@@ -503,41 +880,15 @@ export let storage: IStorage = memStorage;
 // Initialize storage - try different database connections based on environment
 export async function initializeStorage() {
   try {
-    // Determine if we're running in Replit by checking for DATABASE_URL environment variable
-    const isReplit = process.env.DATABASE_URL !== undefined;
+    // Try to connect to MySQL
+    await pool.query("SELECT 1");
+    console.log("✅ Database storage initialized successfully");
+    console.log("✅ Using MySQL database for storage (local)");
     
-    if (isReplit) {
-      // Try to initialize PostgreSQL storage first
-      const pgSuccess = await postgresStorage.initialize();
-      
-      if (pgSuccess) {
-        console.log('✅ Using PostgreSQL database for storage (Replit)');
-        // Switch to PostgreSQL storage
-        storage = postgresStorage;
-        return storage;
-      }
-    } else {
-      // Try to initialize MySQL storage for local development
-      const mysqlSuccess = await mysqlStorage.initialize();
-      
-      if (mysqlSuccess) {
-        console.log('✅ Using MySQL database for storage (local)');
-        // Switch to MySQL storage
-        storage = mysqlStorage;
-        return storage;
-      }
-    }
-    
-    // If we get here, all database connections failed
-    console.log('⚠️ All database connections failed, using in-memory storage');
-    // Continue using memory storage
-    storage = memStorage;
+    // Create MySQL storage implementation
+    storage = new MySQLStorage();
   } catch (error) {
-    console.error('❌ Error initializing storage:', error);
-    console.log('⚠️ Falling back to in-memory storage');
-    // Continue using memory storage
-    storage = memStorage;
+    console.log("⚠️ Failed to connect to MySQL, falling back to memory storage");
+    storage = new MemStorage();
   }
-  
-  return storage;
 }

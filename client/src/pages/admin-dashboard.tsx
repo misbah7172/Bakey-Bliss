@@ -275,9 +275,9 @@ export default function AdminDashboard() {
     const productData = {
       name: productFormData.name,
       description: productFormData.description,
-      price: parseFloat(productFormData.price),
+      price: parseFloat(productFormData.price) || 0,
       image: productFormData.image,
-      category_id: parseInt(productFormData.category_id),
+      category_id: parseInt(productFormData.category_id) || 0,
       is_featured: productFormData.is_featured,
       is_new: productFormData.is_new
     };
@@ -655,7 +655,7 @@ export default function AdminDashboard() {
                                 <span>{product.name}</span>
                               </div>
                             </TableCell>
-                            <TableCell>${product.price.toFixed(2)}</TableCell>
+                            <TableCell>${Number(product.price).toFixed(2)}</TableCell>
                             <TableCell>{category?.name || `-`}</TableCell>
                             <TableCell>
                               <div className="flex gap-1">

@@ -25,6 +25,7 @@ import AdminDashboard from "@/pages/admin-dashboard";
 function Router() {
   return (
     <Switch>
+      {/* Public Routes */}
       <Route path="/" component={HomePage} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/products" component={ProductsPage} />
@@ -32,11 +33,33 @@ function Router() {
       <Route path="/custom-cake" component={CustomCake} />
       <Route path="/custom-chocolate" component={CustomChocolate} />
       <Route path="/cart" component={Cart} />
+      
+      {/* Protected Routes */}
       <ProtectedRoute path="/checkout" component={Checkout} />
-      <ProtectedRoute path="/dashboard/customer" component={CustomerDashboard} />
-      <ProtectedRoute path="/dashboard/junior-baker" component={JuniorBakerDashboard} />
-      <ProtectedRoute path="/dashboard/main-baker" component={MainBakerDashboard} />
-      <ProtectedRoute path="/dashboard/admin" component={AdminDashboard} />
+      
+      {/* Role-based Dashboard Routes */}
+      <ProtectedRoute 
+        path="/dashboard/customer" 
+        component={CustomerDashboard} 
+        allowedRoles={['customer']} 
+      />
+      <ProtectedRoute 
+        path="/dashboard/junior-baker" 
+        component={JuniorBakerDashboard} 
+        allowedRoles={['junior_baker']} 
+      />
+      <ProtectedRoute 
+        path="/dashboard/main-baker" 
+        component={MainBakerDashboard} 
+        allowedRoles={['main_baker']} 
+      />
+      <ProtectedRoute 
+        path="/dashboard/admin" 
+        component={AdminDashboard} 
+        allowedRoles={['admin']} 
+      />
+      
+      {/* Fallback Route */}
       <Route component={NotFound} />
     </Switch>
   );

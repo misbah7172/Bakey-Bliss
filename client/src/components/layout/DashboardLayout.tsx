@@ -127,24 +127,23 @@ export default function DashboardLayout({ children, activeTab }: DashboardLayout
             <ul className="space-y-1">
               {sidebarItems.map((item) => (
                 <li key={item.tab}>
-                  <Link href={`${basePath}${item.href}`}>
-                    <a 
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 rounded-md text-neutral-dark hover:bg-primary/10 hover:text-primary transition-colors",
-                        (activeTab === item.tab || (!activeTab && item.tab === 'dashboard')) && 
-                          "bg-primary/10 text-primary"
-                      )}
-                    >
-                      <item.icon size={20} />
-                      <span className={cn("text-sm", collapsed && "hidden")}>
-                        {item.label}
-                      </span>
-                      {item.count && item.count > 0 && (
-                        <Badge variant="destructive" className={cn("ml-auto", collapsed && "hidden")}>
-                          {item.count}
-                        </Badge>
-                      )}
-                    </a>
+                  <Link 
+                    href={`${basePath}${item.href}`}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 rounded-md text-neutral-dark hover:bg-primary/10 hover:text-primary transition-colors",
+                      (activeTab === item.tab || (!activeTab && item.tab === 'dashboard')) && 
+                        "bg-primary/10 text-primary"
+                    )}
+                  >
+                    <item.icon size={20} />
+                    <span className={cn("text-sm", collapsed && "hidden")}>
+                      {item.label}
+                    </span>
+                    {item.count && item.count > 0 && (
+                      <Badge variant="destructive" className={cn("ml-auto", collapsed && "hidden")}>
+                        {item.count}
+                      </Badge>
+                    )}
                   </Link>
                 </li>
               ))}

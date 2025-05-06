@@ -15,7 +15,8 @@ pause
 echo.
 echo Checking MySQL connection...
 echo.
-mysql -u root -e "SELECT 1" 2>NUL
+set MYSQL_PATH=C:\xampp\mysql\bin\mysql
+%MYSQL_PATH% -u root -e "SELECT 1" 2>NUL
 if %ERRORLEVEL% NEQ 0 (
   echo ERROR: Cannot connect to MySQL.
   echo Make sure XAMPP is running with MySQL service active.
@@ -29,7 +30,7 @@ echo.
 echo Checking if 'bakerybliss' database exists...
 echo.
 
-mysql -u root -e "SHOW DATABASES LIKE 'bakerybliss'" | find "bakerybliss" >NUL
+%MYSQL_PATH% -u root -e "SHOW DATABASES LIKE 'bakerybliss'" | find "bakerybliss" >NUL
 if %ERRORLEVEL% EQU 0 (
   echo Database 'bakerybliss' already exists.
   echo.
@@ -37,9 +38,9 @@ if %ERRORLEVEL% EQU 0 (
   set /p choice=
   if /i "%choice%" EQU "y" (
     echo Dropping existing database...
-    mysql -u root -e "DROP DATABASE bakerybliss"
+    %MYSQL_PATH% -u root -e "DROP DATABASE bakerybliss"
     echo Creating fresh database...
-    mysql -u root -e "CREATE DATABASE bakerybliss"
+    %MYSQL_PATH% -u root -e "CREATE DATABASE bakerybliss"
   ) else (
     echo Database setup cancelled. Existing database will be used.
     pause
@@ -48,13 +49,13 @@ if %ERRORLEVEL% EQU 0 (
 ) else (
   echo Database 'bakerybliss' does not exist.
   echo Creating database...
-  mysql -u root -e "CREATE DATABASE bakerybliss"
+  %MYSQL_PATH% -u root -e "CREATE DATABASE bakerybliss"
 )
 
 echo.
 echo Setting up database tables...
 echo.
-mysql -u root bakerybliss < server/database_setup.sql
+%MYSQL_PATH% -u root bakerybliss < server/database_setup.sql
 if %ERRORLEVEL% NEQ 0 (
   echo ERROR: Failed to set up database tables.
   echo.

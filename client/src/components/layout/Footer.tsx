@@ -57,33 +57,33 @@ export default function Footer() {
             <h3 className="font-heading text-lg font-bold mb-4">Quick Links</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/">
-                  <a className="text-white/70 hover:text-accent transition duration-300">Home</a>
+                <Link href="/" className="text-white/70 hover:text-accent transition duration-300">
+                  Home
                 </Link>
               </li>
               <li>
-                <Link href="/products">
-                  <a className="text-white/70 hover:text-accent transition duration-300">Products</a>
+                <Link href="/products" className="text-white/70 hover:text-accent transition duration-300">
+                  Products
                 </Link>
               </li>
               <li>
-                <Link href="/custom-cake">
-                  <a className="text-white/70 hover:text-accent transition duration-300">Custom Cake</a>
+                <Link href="/custom-cake" className="text-white/70 hover:text-accent transition duration-300">
+                  Custom Cake
                 </Link>
               </li>
               <li>
-                <Link href="/custom-chocolate">
-                  <a className="text-white/70 hover:text-accent transition duration-300">Custom Chocolates</a>
+                <Link href="/custom-chocolate" className="text-white/70 hover:text-accent transition duration-300">
+                  Custom Chocolates
                 </Link>
               </li>
               <li>
-                <Link href="/cart">
-                  <a className="text-white/70 hover:text-accent transition duration-300">Cart</a>
+                <Link href="/cart" className="text-white/70 hover:text-accent transition duration-300">
+                  Cart
                 </Link>
               </li>
               <li>
-                <Link href="/auth">
-                  <a className="text-white/70 hover:text-accent transition duration-300">Baker Application</a>
+                <Link href="/auth" className="text-white/70 hover:text-accent transition duration-300">
+                  Baker Application
                 </Link>
               </li>
             </ul>
@@ -94,33 +94,33 @@ export default function Footer() {
             <h3 className="font-heading text-lg font-bold mb-4">Categories</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/products?category=Bread & Loaves">
-                  <a className="text-white/70 hover:text-accent transition duration-300">Breads & Loaves</a>
+                <Link href="/products?category=Bread & Loaves" className="text-white/70 hover:text-accent transition duration-300">
+                  Breads & Loaves
                 </Link>
               </li>
               <li>
-                <Link href="/products?category=Cakes & Pastries">
-                  <a className="text-white/70 hover:text-accent transition duration-300">Cakes & Pastries</a>
+                <Link href="/products?category=Cakes & Pastries" className="text-white/70 hover:text-accent transition duration-300">
+                  Cakes & Pastries
                 </Link>
               </li>
               <li>
-                <Link href="/products?category=Cookies & Biscuits">
-                  <a className="text-white/70 hover:text-accent transition duration-300">Cookies & Biscuits</a>
+                <Link href="/products?category=Cookies & Biscuits" className="text-white/70 hover:text-accent transition duration-300">
+                  Cookies & Biscuits
                 </Link>
               </li>
               <li>
-                <Link href="/products?category=Pies & Tarts">
-                  <a className="text-white/70 hover:text-accent transition duration-300">Pies & Tarts</a>
+                <Link href="/products?category=Pies & Tarts" className="text-white/70 hover:text-accent transition duration-300">
+                  Pies & Tarts
                 </Link>
               </li>
               <li>
-                <Link href="/products?category=Custom Chocolates">
-                  <a className="text-white/70 hover:text-accent transition duration-300">Custom Chocolates</a>
+                <Link href="/products?category=Custom Chocolates" className="text-white/70 hover:text-accent transition duration-300">
+                  Custom Chocolates
                 </Link>
               </li>
               <li>
-                <Link href="/products?category=Seasonal & Special Items">
-                  <a className="text-white/70 hover:text-accent transition duration-300">Seasonal Items</a>
+                <Link href="/products?category=Seasonal & Special Items" className="text-white/70 hover:text-accent transition duration-300">
+                  Seasonal Items
                 </Link>
               </li>
             </ul>

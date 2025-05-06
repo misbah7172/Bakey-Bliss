@@ -66,25 +66,17 @@ export default function Header() {
           
           {/* Navigation Menu - Desktop */}
           <nav className="hidden md:flex space-x-6">
-            <Link href="/">
-              <a className={`text-neutral-dark hover:text-primary font-medium ${location === '/' ? 'text-primary' : ''}`}>
-                Home
-              </a>
+            <Link href="/" className={`text-neutral-dark hover:text-primary font-medium ${location === '/' ? 'text-primary' : ''}`}>
+              Home
             </Link>
-            <Link href="/products">
-              <a className={`text-neutral-dark hover:text-primary font-medium ${location === '/products' ? 'text-primary' : ''}`}>
-                Products
-              </a>
+            <Link href="/products" className={`text-neutral-dark hover:text-primary font-medium ${location === '/products' ? 'text-primary' : ''}`}>
+              Products
             </Link>
-            <Link href="/custom-cake">
-              <a className={`text-neutral-dark hover:text-primary font-medium ${location === '/custom-cake' ? 'text-primary' : ''}`}>
-                Custom Cake
-              </a>
+            <Link href="/custom-cake" className={`text-neutral-dark hover:text-primary font-medium ${location === '/custom-cake' ? 'text-primary' : ''}`}>
+              Custom Cake
             </Link>
-            <Link href="/custom-chocolate">
-              <a className={`text-neutral-dark hover:text-primary font-medium ${location === '/custom-chocolate' ? 'text-primary' : ''}`}>
-                Custom Chocolates
-              </a>
+            <Link href="/custom-chocolate" className={`text-neutral-dark hover:text-primary font-medium ${location === '/custom-chocolate' ? 'text-primary' : ''}`}>
+              Custom Chocolates
             </Link>
           </nav>
           
@@ -190,60 +182,54 @@ export default function Header() {
         {mobileMenuOpen && (
           <div className="md:hidden py-4 border-t border-border">
             <nav className="flex flex-col space-y-4">
-              <Link href="/">
-                <a 
-                  className={`text-neutral-dark hover:text-primary font-medium ${location === '/' ? 'text-primary' : ''}`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Home
-                </a>
+              <Link 
+                href="/" 
+                className={`text-neutral-dark hover:text-primary font-medium ${location === '/' ? 'text-primary' : ''}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Home
               </Link>
-              <Link href="/products">
-                <a 
-                  className={`text-neutral-dark hover:text-primary font-medium ${location === '/products' ? 'text-primary' : ''}`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Products
-                </a>
+              <Link 
+                href="/products" 
+                className={`text-neutral-dark hover:text-primary font-medium ${location === '/products' ? 'text-primary' : ''}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Products
               </Link>
-              <Link href="/custom-cake">
-                <a 
-                  className={`text-neutral-dark hover:text-primary font-medium ${location === '/custom-cake' ? 'text-primary' : ''}`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Custom Cake
-                </a>
+              <Link 
+                href="/custom-cake" 
+                className={`text-neutral-dark hover:text-primary font-medium ${location === '/custom-cake' ? 'text-primary' : ''}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Custom Cake
               </Link>
-              <Link href="/custom-chocolate">
-                <a 
-                  className={`text-neutral-dark hover:text-primary font-medium ${location === '/custom-chocolate' ? 'text-primary' : ''}`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Custom Chocolates
-                </a>
+              <Link 
+                href="/custom-chocolate" 
+                className={`text-neutral-dark hover:text-primary font-medium ${location === '/custom-chocolate' ? 'text-primary' : ''}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Custom Chocolates
               </Link>
               {user && (
-                <Link href={getDashboardLink()}>
-                  <a 
-                    className="text-neutral-dark hover:text-primary font-medium"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Dashboard
-                  </a>
+                <Link 
+                  href={getDashboardLink()}
+                  className="text-neutral-dark hover:text-primary font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Dashboard
                 </Link>
               )}
               {!user && (
-                <Link href="/auth">
-                  <a 
-                    className="text-neutral-dark hover:text-primary font-medium"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Login
-                  </a>
+                <Link 
+                  href="/auth"
+                  className="text-neutral-dark hover:text-primary font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Login
                 </Link>
               )}
               {user && (
-                <a 
+                <button 
                   className="text-destructive hover:text-destructive/80 font-medium cursor-pointer"
                   onClick={() => {
                     handleLogout();
@@ -251,7 +237,7 @@ export default function Header() {
                   }}
                 >
                   Logout
-                </a>
+                </button>
               )}
             </nav>
           </div>
